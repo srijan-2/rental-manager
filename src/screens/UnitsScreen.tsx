@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { FAB, Text, useTheme } from 'react-native-paper';
+import { UnitsStackParamList } from '../navigation/UnitsStack';
 import { AddUnitModal } from '../components/units/AddUnitModal';
 import { UnitCard } from '../components/units/UnitCard';
 import { useUnitsStore } from '../store';
@@ -8,7 +10,9 @@ import { sharedStyles, spacing } from '../styles/layout';
 import { AddUnitFormValues, RentalUnit } from '../types/unit';
 import { parseCurrencyInput } from '../utils';
 
-export function UnitsScreen() {
+type Props = NativeStackScreenProps<UnitsStackParamList, 'UnitsList'>;
+
+export function UnitsScreen({ navigation }: Props) {
   const theme = useTheme();
   const units = useUnitsStore((state) => state.units);
   const addUnit = useUnitsStore((state) => state.addUnit);
@@ -63,7 +67,12 @@ export function UnitsScreen() {
       <FlatList
         data={units}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <UnitCard unit={item} />}
+        renderItem={({ item }) => (
+          <UnitCard
+            unit={item}
+            onPress={(unit) => navigation.navigate('UnitDetails', { unitId: unit.id })}
+          />
+        )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmptyState}
         contentContainerStyle={styles.listContent}

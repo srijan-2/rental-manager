@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Chip, Surface, Text, useTheme } from 'react-native-paper';
 import { radius, spacing } from '../../styles/layout';
 import { RentalUnit } from '../../types/unit';
@@ -7,13 +7,15 @@ import { formatINR, formatIndianDate } from '../../utils';
 
 interface UnitCardProps {
   unit: RentalUnit;
+  onPress?: (unit: RentalUnit) => void;
 }
 
-export const UnitCard = memo(({ unit }: UnitCardProps) => {
+export const UnitCard = memo(({ unit, onPress }: UnitCardProps) => {
   const theme = useTheme();
   const isOccupied = unit.status === 'Occupied';
 
   return (
+    <Pressable onPress={() => onPress?.(unit)}>
     <Surface
       style={[
         styles.card,
@@ -58,6 +60,7 @@ export const UnitCard = memo(({ unit }: UnitCardProps) => {
         </View>
       </View>
     </Surface>
+    </Pressable>
   );
 });
 

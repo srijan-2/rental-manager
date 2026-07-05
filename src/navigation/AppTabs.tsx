@@ -5,7 +5,7 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { ElectricityBillsScreen } from '../screens/ElectricityBillsScreen';
 import { PaymentsScreen } from '../screens/PaymentsScreen';
 import { TenantsScreen } from '../screens/TenantsScreen';
-import { UnitsScreen } from '../screens/UnitsScreen';
+import { UnitsStack } from './UnitsStack';
 
 type RootTabParamList = {
   Dashboard: undefined;
@@ -46,7 +46,7 @@ export function AppTabs() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} />
-      <Tab.Screen name="Units" component={UnitsScreen} />
+      <Tab.Screen name="Units" component={UnitsStack} />
       <Tab.Screen name="Tenants" component={TenantsScreen} />
       <Tab.Screen name="Payments" component={PaymentsScreen} />
       <Tab.Screen
