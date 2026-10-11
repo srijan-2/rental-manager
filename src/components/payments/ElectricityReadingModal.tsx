@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Button, HelperText, Modal, Portal, Text, TextInput } from 'react-native-paper';
+import { Button, HelperText, Modal, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import { ElectricityEntry } from '../../store/paymentsStore';
 import { Payment } from '../../types/payment';
-import { formatINR, todayISO } from '../../utils';
+import { formatINR, roundMoney, todayISO } from '../../utils';
 
 interface FormValues {
+  previousReading: string;
   currentReading: string;
   ratePerUnit: string;
 }
@@ -32,29 +33,38 @@ export function ElectricityReadingModal({
   onDismiss,
   onSave,
 }: ElectricityReadingModalProps) {
+  const theme = useTheme();
   const [previousLocked, setPreviousLocked] = useState(true);
-  const [previousDraft, setPreviousDraft] = useState('');
   const { control, handleSubmit, reset, trigger, watch, formState } = useForm<FormValues>({
-    defaultValues: { currentReading: '', ratePerUnit: '' },
+    defaultValues: { previousReading: '', currentReading: '', ratePerUnit: '' },
   });
+  const previousReadingValue = watch('previousReading');
   const currentReading = watch('currentReading');
   const ratePerUnit = watch('ratePerUnit');
   const existing = bill.electricity;
   const blocked = previousReading === null;
-  const previousValue = Number(previousDraft);
+  const previousValue = Number(previousReadingValue);
   const currentValue = Number(currentReading);
   const rateValue = Number(ratePerUnit);
+  const unitsConsumed = roundMoney(currentValue - previousValue);
+  const electricityAmount = roundMoney(unitsConsumed * rateValue);
   const hasValidPreview =
+    previousReadingValue.trim() !== '' &&
     currentReading.trim() !== '' &&
     ratePerUnit.trim() !== '' &&
+    Number.isFinite(previousValue) &&
     Number.isFinite(currentValue) &&
     Number.isFinite(rateValue) &&
+    previousValue >= 0 &&
+    currentValue >= 0 &&
     currentValue >= previousValue &&
-    rateValue > 0;
+    rateValue > 0 &&
+    Object.keys(formState.errors).length === 0;
 
   useEffect(() => {
     if (visible) {
       reset({
+        previousReading: String(existing?.previousReading ?? previousReading ?? ''),
         currentReading: existing ? String(existing.currentReading) : '',
         ratePerUnit: existing
           ? String(existing.ratePerUnit)
@@ -62,20 +72,19 @@ export function ElectricityReadingModal({
             ? String(initialRate)
             : '',
       });
-      setPreviousDraft(String(existing?.previousReading ?? previousReading ?? ''));
       setPreviousLocked(true);
     }
-  }, [existing, initialRate, reset, visible]);
+  }, [existing, initialRate, previousReading, reset, visible]);
 
   const submit = (values: FormValues) => {
     const current = Number(values.currentReading);
     const rate = Number(values.ratePerUnit);
     onSave({
-      previousReading: previousValue,
+      previousReading: Number(values.previousReading),
       currentReading: current,
-      unitsConsumed: current - previousValue,
+      unitsConsumed: roundMoney(current - Number(values.previousReading)),
       ratePerUnit: rate,
-      amount: (current - previousValue) * rate,
+      amount: roundMoney((current - Number(values.previousReading)) * rate),
       recordedAt: todayISO(),
     });
     onDismiss();
@@ -83,10 +92,17 @@ export function ElectricityReadingModal({
 
   return (
     <Portal>
-      <Modal visible={visible} onDismiss={onDismiss} contentContainerStyle={styles.modal}>
+      <Modal
+        visible={visible}
+        onDismiss={onDismiss}
+        contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surfaceVariant }]}
+      >
         <ScrollView keyboardShouldPersistTaps="handled">
           <Text variant="titleLarge">Electricity reading</Text>
-          <Text variant="bodySmall" style={styles.period}>
+          <Text
+            variant="bodySmall"
+            style={[styles.period, { color: theme.colors.onSurfaceVariant }]}
+          >
             {bill.periodLabel}
           </Text>
           {blocked ? (
@@ -95,26 +111,45 @@ export function ElectricityReadingModal({
             </Text>
           ) : (
             <>
-              <View style={styles.previousRow}>
-                <TextInput
-                  label="Previous reading"
-                  mode="outlined"
-                  value={previousDraft}
-                  editable={!previousLocked}
-                  onChangeText={(value) => {
-                    setPreviousDraft(value);
-                    void trigger('currentReading');
-                  }}
-                  right={
-                    <TextInput.Icon
-                      icon={previousLocked ? 'lock-outline' : 'lock-open-variant-outline'}
-                      onPress={() => setPreviousLocked((locked) => !locked)}
-                    />
-                  }
-                />
-              </View>
+              <Controller
+                control={control}
+                name="previousReading"
+                rules={{
+                  required: 'Previous reading is required',
+                  validate: (value) =>
+                    (value.trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0) ||
+                    'Enter a valid non-negative number',
+                }}
+                render={({ field: { onChange, value } }) => (
+                  <>
+                    <View style={styles.previousRow}>
+                      <TextInput
+                        label="Previous reading"
+                        mode="outlined"
+                        value={value}
+                        editable={!previousLocked}
+                        onChangeText={(nextValue) => {
+                          onChange(nextValue);
+                          void trigger('previousReading');
+                          void trigger('currentReading');
+                        }}
+                        error={Boolean(formState.errors.previousReading)}
+                        right={
+                          <TextInput.Icon
+                            icon={previousLocked ? 'lock-outline' : 'lock-open-variant-outline'}
+                            onPress={() => setPreviousLocked((locked) => !locked)}
+                          />
+                        }
+                      />
+                    </View>
+                    <HelperText type="error" visible={Boolean(formState.errors.previousReading)}>
+                      {formState.errors.previousReading?.message}
+                    </HelperText>
+                  </>
+                )}
+              />
               {!previousLocked ? (
-                <Text variant="bodySmall" style={styles.warning}>
+                <Text variant="bodySmall" style={[styles.warning, { color: theme.colors.error }]}>
                   Overriding the previous reading may affect this cycle's calculation.
                 </Text>
               ) : null}
@@ -180,17 +215,23 @@ export function ElectricityReadingModal({
               />
               {hasValidPreview ? (
                 <View style={styles.preview}>
-                  <Text>Units: {currentValue - previousValue}</Text>
-                  <Text>Electricity: {formatINR((currentValue - previousValue) * rateValue)}</Text>
+                  <Text>Units: {unitsConsumed}</Text>
+                  <Text>Electricity: {formatINR(electricityAmount)}</Text>
                   <Text variant="titleMedium">
-                    Total: {formatINR(bill.rentAmount + (currentValue - previousValue) * rateValue)}
+                    Total: {formatINR(roundMoney(bill.rentAmount + electricityAmount))}
                   </Text>
                 </View>
               ) : null}
               <View style={styles.actions}>
                 <Button onPress={onDismiss}>Cancel</Button>
+                {!canEdit ? (
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    This reading can't be edited after electricity is paid or once the next cycle
+                    has a reading.
+                  </Text>
+                ) : null}
                 <Button mode="contained" disabled={!canEdit} onPress={handleSubmit(submit)}>
-                  {existing ? 'Save reading' : 'Save reading'}
+                  Save reading
                 </Button>
               </View>
             </>
@@ -202,10 +243,10 @@ export function ElectricityReadingModal({
 }
 
 const styles = StyleSheet.create({
-  modal: { backgroundColor: '#1A2333', borderRadius: 16, margin: 16, padding: 16 },
-  period: { color: '#94A3B8', marginBottom: 12, marginTop: 4 },
+  modal: { borderRadius: 16, margin: 16, padding: 16 },
+  period: { marginBottom: 12, marginTop: 4 },
   previousRow: { marginBottom: 8 },
-  warning: { color: '#FBBF24', marginBottom: 10 },
+  warning: { marginBottom: 10 },
   preview: { gap: 4, marginTop: 8 },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
 });

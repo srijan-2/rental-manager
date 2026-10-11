@@ -47,7 +47,7 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
     formState: { errors },
   } = useForm<TenantFormValues>({ defaultValues: DEFAULT });
   const available = useMemo(
-    () => units.filter((u) => !u.tenantId || u.id === selectedTenant?.unitId),
+    () => units.filter((u) => !u.archivedAt && (!u.tenantId || u.id === selectedTenant?.unitId)),
     [units, selectedTenant]
   );
   const selectedUnitId = watch('unitId');
@@ -110,7 +110,7 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
       <Modal
         visible={visible}
         onDismiss={onDismiss}
-        contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}
+        contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surfaceVariant }]}
       >
         <Text variant="titleLarge" style={styles.title}>
           {selectedTenant ? 'Edit Tenant' : 'Add Tenant'}
@@ -156,7 +156,7 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
           render={() => (
             <>
               <Pressable
-                disabled={noUnits}
+                disabled={noUnits || Boolean(selectedTenant)}
                 style={styles.selector}
                 onPress={() => setUnitOpen(true)}
               >

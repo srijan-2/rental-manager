@@ -5,8 +5,14 @@ import { Building } from '../../types/building';
 import { Payment } from '../../types/payment';
 import { RentalUnit } from '../../types/unit';
 import { formatINR, formatIndianDate, formatUnitLabel } from '../../utils';
-import { describeOutstanding, getBillAmounts, getBillStatus } from '../../utils/payments';
+import {
+  describeOutstanding,
+  getBillAmounts,
+  getBillStatus,
+  isReadingWindowOpen,
+} from '../../utils/payments';
 import { radius, spacing } from '../../styles/layout';
+import { getStatusColors } from '../../theme/statusColors';
 
 interface PaymentCardProps {
   bill: Payment;
@@ -20,6 +26,7 @@ interface PaymentCardProps {
   onEnterReading: (id: string) => void;
   onMarkRentUnpaid: (id: string) => void;
   onMarkElectricityUnpaid: (id: string) => void;
+  onDeleteBill: (id: string) => void;
 }
 
 export const PaymentCard = memo(
@@ -35,20 +42,13 @@ export const PaymentCard = memo(
     onEnterReading,
     onMarkRentUnpaid,
     onMarkElectricityUnpaid,
+    onDeleteBill,
   }: PaymentCardProps) => {
     const theme = useTheme();
     const status = getBillStatus(bill, todayIso);
     const amounts = getBillAmounts(bill);
-    const statusColor =
-      status === 'Paid'
-        ? { background: '#14532d66', text: '#86EFAC' }
-        : status === 'Overdue'
-          ? { background: '#7f1d1d66', text: '#FCA5A5' }
-          : status === 'Due'
-            ? { background: '#78350f66', text: '#FCD34D' }
-            : { background: '#1e3a8a66', text: '#93C5FD' };
-    const cycleEnded = todayIso >= bill.cycleEnd;
-    const canCollect = cycleEnded;
+    const statusColor = getStatusColors(status);
+    const readingWindowOpen = isReadingWindowOpen(bill, todayIso);
 
     return (
       <Surface
@@ -91,16 +91,16 @@ export const PaymentCard = memo(
         <View style={styles.actions}>
           <Button
             mode="outlined"
-            disabled={!cycleEnded || (Boolean(bill.electricity) && !canEditReading)}
+            disabled={!readingWindowOpen || (Boolean(bill.electricity) && !canEditReading)}
             onPress={() => onEnterReading(bill.id)}
           >
             {bill.electricity
               ? 'Edit reading'
-              : cycleEnded
+              : readingWindowOpen
                 ? 'Enter reading'
                 : `Available from ${formatIndianDate(bill.cycleEnd)}`}
           </Button>
-          {!bill.rentPaidDate && canCollect ? (
+          {!bill.rentPaidDate ? (
             <Button mode="contained-tonal" onPress={() => onCollectRent(bill.id)}>
               Collect rent
             </Button>
@@ -109,7 +109,7 @@ export const PaymentCard = memo(
               Mark rent unpaid
             </Button>
           ) : null}
-          {bill.electricity && !bill.electricityPaidDate && canCollect ? (
+          {bill.electricity && !bill.electricityPaidDate ? (
             <Button mode="contained-tonal" onPress={() => onCollectElectricity(bill.id)}>
               Collect electricity
             </Button>
@@ -118,9 +118,14 @@ export const PaymentCard = memo(
               Mark electricity unpaid
             </Button>
           ) : null}
-          {bill.electricity && !bill.rentPaidDate && !bill.electricityPaidDate && canCollect ? (
+          {bill.electricity && !bill.rentPaidDate && !bill.electricityPaidDate ? (
             <Button mode="contained" onPress={() => onCollectAll(bill.id)}>
               Collect all
+            </Button>
+          ) : null}
+          {!bill.rentPaidDate && !bill.electricity ? (
+            <Button mode="text" onPress={() => onDeleteBill(bill.id)}>
+              Delete bill
             </Button>
           ) : null}
         </View>

@@ -1,19 +1,20 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Chip, Surface, Text, useTheme } from 'react-native-paper';
+import { Button, Chip, Surface, Text, useTheme } from 'react-native-paper';
 import { radius, spacing } from '../../styles/layout';
 import { RentalUnit } from '../../types/unit';
-import { formatINR } from '../../utils';
+import { formatINR, formatUnitLabel } from '../../utils';
 
 interface UnitCardProps {
   unit: RentalUnit;
   buildingName: string;
   tenantDisplayName?: string;
   onPress?: (unit: RentalUnit) => void;
+  onRestore?: () => void;
 }
 
 export const UnitCard = memo(
-  ({ unit, buildingName, tenantDisplayName, onPress }: UnitCardProps) => {
+  ({ unit, buildingName, tenantDisplayName, onPress, onRestore }: UnitCardProps) => {
     const theme = useTheme();
     const isOccupied = unit.status === 'Occupied';
 
@@ -32,7 +33,7 @@ export const UnitCard = memo(
           <View style={styles.row}>
             <View>
               <Text variant="titleMedium" style={styles.unitNumber}>
-                {buildingName} · {unit.unitNumber}
+                {formatUnitLabel(unit, { id: unit.buildingId, name: buildingName })}
               </Text>
               <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
                 Tenant: {tenantDisplayName ?? 'Vacant'}
@@ -47,6 +48,15 @@ export const UnitCard = memo(
               {unit.status}
             </Chip>
           </View>
+
+          {unit.archivedAt ? (
+            <View style={styles.archiveRow}>
+              <Chip compact>Archived</Chip>
+              <Button mode="outlined" compact onPress={onRestore}>
+                Restore
+              </Button>
+            </View>
+          ) : null}
 
           <View style={styles.metaRow}>
             <View>
@@ -92,4 +102,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  archiveRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
 });

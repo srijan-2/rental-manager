@@ -11,6 +11,7 @@ export const appTheme: MD3Theme = {
     background: '#0B111B',
     surface: '#111827',
     surfaceVariant: '#1A2333',
+    backdrop: 'rgba(0, 0, 0, 0.75)',
     outline: '#334155',
     outlineVariant: '#293241',
     error: '#F87171',

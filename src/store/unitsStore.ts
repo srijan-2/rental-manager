@@ -80,26 +80,38 @@ export const useUnitsStore = create<UnitsState>()(
     }),
     {
       name: 'rm-units',
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (state, version) => {
-        if (version >= 4) return state;
+        if (version >= 5) return state;
         const persisted = state as Record<string, unknown> & {
-          units?: Array<Omit<RentalUnit, 'notes'> & { notes?: string | UnitNote[] }>;
+          units?: Array<
+            Omit<RentalUnit, 'notes'> & {
+              notes?: string | UnitNote[];
+            }
+          >;
         };
-        const units = persisted.units ?? [];
+        let units = persisted.units ?? [];
         const now = new Date().toISOString();
-        return {
-          ...persisted,
-          units: units.map((unit) => {
+        if (version < 4) {
+          units = units.map((unit) => {
             if (typeof unit.notes !== 'string') return unit;
             const text = unit.notes.trim();
             return {
               ...unit,
               notes: text ? [{ id: `note-${Date.now()}`, text, createdAt: now }] : [],
             };
-          }),
-        };
+          });
+        }
+        if (version < 5) {
+          const legacyBalanceKey = ['prepaid', 'Electricity', 'Balance'].join('');
+          units = units.map((unit) => {
+            const migratedUnit = { ...unit } as Record<string, unknown>;
+            delete migratedUnit[legacyBalanceKey];
+            return migratedUnit as typeof unit;
+          });
+        }
+        return { ...persisted, units };
       },
     }
   )

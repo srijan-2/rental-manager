@@ -1,19 +1,28 @@
 import { useState, useMemo } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Chip, Divider, IconButton, Snackbar, Text, useTheme } from 'react-native-paper';
+import {
+  Button,
+  Chip,
+  Divider,
+  IconButton,
+  Menu,
+  Snackbar,
+  Text,
+  useTheme,
+} from 'react-native-paper';
 import { CollapsibleSection } from '../components/common/CollapsibleSection';
 import { UnitNotes } from '../components/units/UnitNotes';
+import { UnitFormModal } from '../components/units/UnitFormModal';
+import { useToday } from '../hooks/useToday';
 import { UnitsStackParamList } from '../navigation/UnitsStack';
-import {
-  useBuildingsStore,
-  useElectricityBillsStore,
-  usePaymentsStore,
-  useTenantsStore,
-  useUnitsStore,
-} from '../store';
+import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
-import { formatINR, formatIndianDate, getBillStatus, todayISO } from '../utils';
+import { formatINR, formatIndianDate, getBillStatus } from '../utils';
+import { describeOutstanding, getBillAmounts } from '../utils/payments';
+import { formatUnitLabel } from '../utils/unitLabel';
+import { archiveUnit, deleteUnit, updateUnitDetails } from '../store/actions';
+import { parseCurrencyInput } from '../utils';
 
 type Props = NativeStackScreenProps<UnitsStackParamList, 'UnitDetails'>;
 
@@ -41,9 +50,11 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   const buildings = useBuildingsStore((state) => state.buildings);
   const tenants = useTenantsStore((state) => state.tenants);
   const payments = usePaymentsStore((state) => state.payments);
-  const electricityRecords = useElectricityBillsStore((state) => state.records);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const today = useToday();
 
   const tenant = useMemo(
     () => (unit?.tenantId ? tenants.find((item) => item.id === unit.tenantId) : undefined),
@@ -51,17 +62,20 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   );
 
   const unitPayments = useMemo(
-    () => payments.filter((payment) => payment.unitId === unitId),
+    () =>
+      payments
+        .filter((payment) => payment.unitId === unitId)
+        .sort((a, b) => b.cycleStart.localeCompare(a.cycleStart)),
     [payments, unitId]
   );
 
-  const latestElectricity = useMemo(
-    () => electricityRecords.find((record) => record.unitId === unitId),
-    [electricityRecords, unitId]
+  const latestElectricityBill = useMemo(
+    () => unitPayments.find((payment) => payment.electricity),
+    [unitPayments]
   );
 
   const currentPaymentStatus = unitPayments[0]
-    ? getBillStatus(unitPayments[0], todayISO())
+    ? getBillStatus(unitPayments[0], today)
     : 'In progress';
 
   if (!unit) {
@@ -81,7 +95,10 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
         <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
         <View style={styles.topBarText}>
           <Text variant="headlineSmall" style={styles.heading}>
-            {unit.unitNumber}
+            {formatUnitLabel(
+              unit,
+              buildings.find((building) => building.id === unit.buildingId)
+            )}
           </Text>
           <Text variant="bodyMedium">
             {buildings.find((building) => building.id === unit.buildingId)?.name ??
@@ -95,6 +112,68 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
             {unit.status}
           </Chip>
         </View>
+        <Menu
+          visible={menuVisible}
+          onDismiss={() => setMenuVisible(false)}
+          anchor={<IconButton icon="dots-vertical" onPress={() => setMenuVisible(true)} />}
+        >
+          <Menu.Item
+            title="Edit unit"
+            onPress={() => {
+              setMenuVisible(false);
+              setEditVisible(true);
+            }}
+          />
+          {unit.tenantId ? <Menu.Item disabled title="Remove the tenant first" /> : null}
+          <Menu.Item
+            disabled={Boolean(unit.tenantId)}
+            title={unitPayments.length ? 'Archive unit' : 'Delete unit'}
+            onPress={() => {
+              setMenuVisible(false);
+              const label = formatUnitLabel(
+                unit,
+                buildings.find((item) => item.id === unit.buildingId)
+              );
+              if (unitPayments.length) {
+                Alert.alert(
+                  `Archive ${label}?`,
+                  'The unit will be hidden from lists, but its history will be kept and it can be restored.',
+                  [
+                    { text: 'Cancel' },
+                    {
+                      text: 'Archive',
+                      onPress: () => {
+                        navigation.goBack();
+                        archiveUnit(unit.id);
+                      },
+                    },
+                  ]
+                );
+              } else {
+                Alert.alert(
+                  `Delete ${label}?`,
+                  'Its notes will also be deleted. This cannot be undone.',
+                  [
+                    { text: 'Cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: () => {
+                        navigation.goBack();
+                        deleteUnit(unit.id);
+                      },
+                    },
+                  ]
+                );
+              }
+            }}
+          />
+          {unit.tenantId ? (
+            <Button compact disabled>
+              Remove the tenant first
+            </Button>
+          ) : null}
+        </Menu>
       </View>
 
       <ScrollView
@@ -126,9 +205,11 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
           {unitPayments.length > 0 ? (
             unitPayments.map((payment) => (
               <View key={payment.id} style={styles.historyItem}>
-                <Text variant="bodyMedium">{formatINR(payment.rentAmount)}</Text>
+                <Text variant="bodyMedium">{payment.periodLabel}</Text>
+                <Text variant="bodyMedium">{formatINR(getBillAmounts(payment).totalBilled)}</Text>
+                <Chip compact>{getBillStatus(payment, today)}</Chip>
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  {getBillStatus(payment, todayISO())} · {formatIndianDate(payment.dueDate)}
+                  {describeOutstanding(payment, today)}
                 </Text>
               </View>
             ))
@@ -140,13 +221,6 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
         </CollapsibleSection>
 
         <CollapsibleSection title="Electricity" icon="flash-outline">
-          <DetailRow
-            label="Current Prepaid Balance"
-            value={formatINR(unit.prepaidElectricityBalance ?? 0, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          />
           {tenant ? (
             <>
               <DetailRow label="Electricity Advance" value={formatINR(tenant.electricityAdvance)} />
@@ -158,11 +232,33 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
             </>
           ) : null}
           <DetailRow
-            label="Last Meter Reading"
+            label="Last meter reading"
             value={
-              latestElectricity
-                ? `${latestElectricity.currentMeterReading} (${latestElectricity.monthLabel})`
-                : 'No reading recorded'
+              unit.lastMeterReading === undefined
+                ? 'No reading recorded'
+                : String(unit.lastMeterReading)
+            }
+          />
+          <DetailRow
+            label="Current rate"
+            value={
+              latestElectricityBill
+                ? formatINR(latestElectricityBill.electricity!.ratePerUnit, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })
+                : '-'
+            }
+          />
+          <DetailRow
+            label="Latest charge"
+            value={
+              latestElectricityBill
+                ? `${formatINR(latestElectricityBill.electricity!.amount, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })} · ${latestElectricityBill.periodLabel}`
+                : '-'
             }
           />
         </CollapsibleSection>
@@ -191,6 +287,22 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
       >
         {snackbarMessage}
       </Snackbar>
+      <UnitFormModal
+        visible={editVisible}
+        unit={unit}
+        onDismiss={() => setEditVisible(false)}
+        onSubmitUnit={(values) =>
+          updateUnitDetails(unit.id, {
+            buildingId: values.buildingId,
+            unitNumber: values.unitNumber,
+            monthlyRent: parseCurrencyInput(values.monthlyRent),
+            securityDeposit: values.securityDeposit
+              ? parseCurrencyInput(values.securityDeposit)
+              : undefined,
+            subMeterId: values.subMeterId,
+          })
+        }
+      />
     </View>
   );
 }

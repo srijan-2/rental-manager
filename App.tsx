@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import {
   NavigationContainer,
   DefaultTheme as NavigationDefaultTheme,
@@ -7,6 +9,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppTabs } from './src/navigation/AppTabs';
 import { appTheme } from './src/theme/appTheme';
+import { useBillScheduleSync } from './src/hooks/useBillScheduleSync';
 
 const navigationTheme = {
   ...NavigationDefaultTheme,
@@ -21,6 +24,12 @@ const navigationTheme = {
 };
 
 export default function App() {
+  useBillScheduleSync();
+
+  useEffect(() => {
+    void AsyncStorage.removeItem('rm-electricity');
+  }, []);
+
   return (
     <SafeAreaProvider>
       <PaperProvider theme={appTheme}>

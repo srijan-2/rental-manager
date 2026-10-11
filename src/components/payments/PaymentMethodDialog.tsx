@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Dialog, Portal, SegmentedButtons } from 'react-native-paper';
+import { Button, Dialog, Portal, SegmentedButtons, useTheme } from 'react-native-paper';
 import { PaymentMethod } from '../../types/payment';
 
 interface PaymentMethodDialogProps {
@@ -9,6 +9,7 @@ interface PaymentMethodDialogProps {
 }
 
 export function PaymentMethodDialog({ visible, onDismiss, onConfirm }: PaymentMethodDialogProps) {
+  const theme = useTheme();
   const [method, setMethod] = useState<PaymentMethod>('Cash');
 
   useEffect(() => {
@@ -17,7 +18,11 @@ export function PaymentMethodDialog({ visible, onDismiss, onConfirm }: PaymentMe
 
   return (
     <Portal>
-      <Dialog visible={visible} onDismiss={onDismiss}>
+      <Dialog
+        visible={visible}
+        onDismiss={onDismiss}
+        style={{ backgroundColor: theme.colors.surfaceVariant }}
+      >
         <Dialog.Title>Payment method</Dialog.Title>
         <Dialog.Content>
           <SegmentedButtons

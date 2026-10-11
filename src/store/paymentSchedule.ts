@@ -33,14 +33,16 @@ export function ensureBillSchedule(todayIso = todayISO()) {
         dueDate: nextCycleStart,
         periodLabel: formatPeriodLabel(cycleStart, subtractOneDay(nextCycleStart)),
         rentAmount: tenant.monthlyRent,
+        ...(cycleIndex === 0 ? { openingReading: tenant.openingMeterReading } : {}),
         createdAt: todayIso,
       };
-      if (
-        !paymentsStore.payments.some(
-          (payment) => payment.tenantId === tenant.id && payment.cycleStart === cycleStart
-        )
-      ) {
+      const existing = paymentsStore.payments.find(
+        (payment) => payment.tenantId === tenant.id && payment.cycleStart === cycleStart
+      );
+      if (!existing) {
         paymentsStore.addPayment(bill);
+      } else if (cycleIndex === 0 && existing.openingReading === undefined) {
+        paymentsStore.updatePayment(existing.id, { openingReading: tenant.openingMeterReading });
       }
       cycleIndex += 1;
       cycleStart = addMonthsClamped(tenant.billingStartDate, cycleIndex);

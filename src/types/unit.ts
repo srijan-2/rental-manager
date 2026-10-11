@@ -15,8 +15,8 @@ export interface RentalUnit {
   status: OccupancyStatus;
   securityDeposit?: number;
   subMeterId?: string;
-  prepaidElectricityBalance?: number;
   lastMeterReading?: number;
+  archivedAt?: string;
   tenantId?: string;
   notes?: UnitNote[];
 }
@@ -27,5 +27,4 @@ export interface AddUnitFormValues {
   monthlyRent: string;
   securityDeposit: string;
   subMeterId: string;
-  prepaidElectricityBalance: string;
 }

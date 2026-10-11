@@ -2,12 +2,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import { DashboardScreen } from '../screens/DashboardScreen';
-import { ElectricityBillsScreen } from '../screens/ElectricityBillsScreen';
+import { ElectricityScreen } from '../screens/ElectricityScreen';
 import { PaymentsScreen } from '../screens/PaymentsScreen';
 import { TenantsScreen } from '../screens/TenantsScreen';
 import { UnitsStack } from './UnitsStack';
 
-type RootTabParamList = {
+export type RootTabParamList = {
   Dashboard: undefined;
   Units: undefined;
   Tenants: undefined;
@@ -53,7 +53,7 @@ export function AppTabs() {
       <Tab.Screen name="Payments" component={PaymentsScreen} />
       <Tab.Screen
         name="ElectricityBalance"
-        component={ElectricityBillsScreen}
+        component={ElectricityScreen}
         options={{ title: 'Electricity' }}
       />
     </Tab.Navigator>

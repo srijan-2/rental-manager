@@ -2,16 +2,17 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, SectionList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Chip, Searchbar, SegmentedButtons, Surface, Text, useTheme } from 'react-native-paper';
-import { ElectricityReadingModal } from '../components/payments/ElectricityReadingModal';
 import { PaymentCard } from '../components/payments/PaymentCard';
 import { PaymentMethodDialog } from '../components/payments/PaymentMethodDialog';
+import { useReadingEntry } from '../hooks/useReadingEntry';
 import { ensureBillSchedule } from '../store/paymentSchedule';
 import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { Payment, PaymentMethod } from '../types/payment';
-import { Tenant } from '../types/tenant';
-import { getBillAmounts, getBillStatus } from '../utils/payments';
-import { formatINR, formatUnitLabel, todayISO } from '../utils';
+import { getBillAmounts, getBillStatus, getPaymentsSummary } from '../utils/payments';
+import { formatINR, formatUnitLabel } from '../utils';
+import { useToday } from '../hooks/useToday';
+import { canEditReading } from '../utils/readings';
 
 interface PaymentSection {
   title: string;
@@ -29,7 +30,7 @@ export function PaymentsScreen() {
   const markElectricityPaid = usePaymentsStore((state) => state.markElectricityPaid);
   const markElectricityUnpaid = usePaymentsStore((state) => state.markElectricityUnpaid);
   const markAllPaid = usePaymentsStore((state) => state.markAllPaid);
-  const saveElectricity = usePaymentsStore((state) => state.saveElectricity);
+  const deletePayment = usePaymentsStore((state) => state.deletePayment);
   const tenants = useTenantsStore((state) => state.tenants);
   const units = useUnitsStore((state) => state.units);
   const buildings = useBuildingsStore((state) => state.buildings);
@@ -39,8 +40,8 @@ export function PaymentsScreen() {
   const [collection, setCollection] = useState<{ id: string; action: CollectionAction } | null>(
     null
   );
-  const [readingId, setReadingId] = useState<string | null>(null);
-  const today = todayISO();
+  const today = useToday();
+  const { openReading, readingModal } = useReadingEntry();
 
   useFocusEffect(
     useCallback(() => {
@@ -48,33 +49,13 @@ export function PaymentsScreen() {
     }, [])
   );
 
-  const tenantById = useMemo(
-    () => new Map(tenants.map((tenant) => [tenant.id, tenant])),
-    [tenants]
-  );
   const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
   const buildingById = useMemo(
     () => new Map(buildings.map((building) => [building.id, building])),
     [buildings]
   );
 
-  const summary = useMemo(() => {
-    const month = today.slice(0, 7);
-    return payments.reduce(
-      (result, bill) => {
-        const amounts = getBillAmounts(bill);
-        if (bill.electricity && today >= bill.cycleEnd)
-          result.pendingToCollect += amounts.outstanding;
-        if (getBillStatus(bill, today) === 'Calculation pending') result.awaitingCalculation += 1;
-        if (bill.rentPaidDate?.slice(0, 7) === month) result.collectedThisMonth += bill.rentAmount;
-        if (bill.electricityPaidDate?.slice(0, 7) === month) {
-          result.collectedThisMonth += bill.electricity?.amount ?? 0;
-        }
-        return result;
-      },
-      { pendingToCollect: 0, awaitingCalculation: 0, collectedThisMonth: 0 }
-    );
-  }, [payments, today]);
+  const summary = useMemo(() => getPaymentsSummary(payments, today), [payments, today]);
 
   const upcomingSections = useMemo<PaymentSection[]>(() => {
     const sections = new Map<string, Payment[]>();
@@ -120,17 +101,19 @@ export function PaymentsScreen() {
       .map(([unitId, data]) => {
         const unit = unitById.get(unitId);
         const building = unit ? buildingById.get(unit.buildingId) : undefined;
+        const sortedData = data.sort((a, b) => b.cycleStart.localeCompare(a.cycleStart));
         return {
-          title: `${unit ? formatUnitLabel(unit, building) : 'Unknown unit'} · ${data[0].tenantName}`,
-          data: data.sort((a, b) => b.cycleStart.localeCompare(a.cycleStart)),
-          totalCollected: data.reduce((sum, bill) => sum + getBillAmounts(bill).totalBilled, 0),
+          title: `${unit ? formatUnitLabel(unit, building) : 'Unknown unit'} · ${sortedData[0].tenantName}`,
+          data: sortedData,
+          totalCollected: sortedData.reduce(
+            (sum, bill) => sum + getBillAmounts(bill).totalBilled,
+            0
+          ),
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title));
   }, [buildingById, buildingFilter, payments, search, today, unitById]);
 
-  const readingBill = readingId ? payments.find((bill) => bill.id === readingId) : undefined;
-  const readingContext = readingBill ? getReadingContext(readingBill, payments, tenants) : null;
   const collectionBill = collection
     ? payments.find((bill) => bill.id === collection.id)
     : undefined;
@@ -154,6 +137,12 @@ export function PaymentsScreen() {
       },
     ]);
   };
+  const confirmDelete = (id: string) => {
+    Alert.alert('Delete bill?', 'This bill has no paid rent or electricity reading.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deletePayment(id) },
+    ]);
+  };
 
   return (
     <View
@@ -161,10 +150,10 @@ export function PaymentsScreen() {
     >
       <View style={styles.header}>
         <Text variant="headlineSmall" style={styles.title}>
-          Rent Payments
+          Payments
         </Text>
         <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-          Monthly rent tracking, status, and rent collection history.
+          Rent and electricity bills by billing cycle.
         </Text>
       </View>
       <Surface
@@ -175,7 +164,10 @@ export function PaymentsScreen() {
         elevation={2}
       >
         <SummaryItem label="Pending to collect" value={formatINR(summary.pendingToCollect)} />
-        <SummaryItem label="Awaiting calculation" value={String(summary.awaitingCalculation)} />
+        <SummaryItem
+          label="Awaiting calculation"
+          value={String(summary.awaitingCalculationCount)}
+        />
         <SummaryItem label="Collected this month" value={formatINR(summary.collectedThisMonth)} />
       </Surface>
       <SegmentedButtons
@@ -251,31 +243,21 @@ export function PaymentsScreen() {
             onCollectRent={(id) => openCollection(id, 'rent')}
             onCollectElectricity={(id) => openCollection(id, 'electricity')}
             onCollectAll={(id) => openCollection(id, 'all')}
-            onEnterReading={setReadingId}
+            onEnterReading={openReading}
             onMarkRentUnpaid={(id) => confirmUnpaid(id, 'rent')}
             onMarkElectricityUnpaid={(id) => confirmUnpaid(id, 'electricity')}
+            onDeleteBill={confirmDelete}
           />
         )}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: theme.colors.onSurfaceVariant }]}>
             {tab === 'upcoming'
               ? 'No bills yet. They appear once a tenant is added.'
               : 'No payment history yet.'}
           </Text>
         }
       />
-      {readingBill && readingContext ? (
-        <ElectricityReadingModal
-          visible
-          bill={readingBill}
-          previousReading={readingContext.previousReading}
-          previousPeriodLabel={readingContext.previousPeriodLabel}
-          initialRate={readingContext.initialRate}
-          canEdit={canEditReading(readingBill, payments, today)}
-          onDismiss={() => setReadingId(null)}
-          onSave={(electricity) => saveElectricity(readingBill.id, electricity)}
-        />
-      ) : null}
+      {readingModal}
       <PaymentMethodDialog
         visible={Boolean(collectionBill)}
         onDismiss={() => setCollection(null)}
@@ -292,35 +274,6 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
       <Text variant="titleMedium">{value}</Text>
     </View>
   );
-}
-
-function getReadingContext(bill: Payment, bills: Payment[], tenants: Tenant[]) {
-  const previousBill = bills
-    .filter((item) => item.tenantId === bill.tenantId && item.cycleStart < bill.cycleStart)
-    .sort((a, b) => b.cycleStart.localeCompare(a.cycleStart))[0];
-  const tenant = tenants.find((item) => item.id === bill.tenantId);
-  const previousReading = previousBill
-    ? (previousBill.electricity?.currentReading ?? null)
-    : (tenant?.openingMeterReading ?? null);
-  const initialRate =
-    bills
-      .filter((item) => item.unitId === bill.unitId && item.electricity)
-      .sort((a, b) =>
-        (b.electricity?.recordedAt ?? '').localeCompare(a.electricity?.recordedAt ?? '')
-      )[0]?.electricity?.ratePerUnit ?? 0;
-  return {
-    previousReading,
-    previousPeriodLabel: previousBill?.periodLabel,
-    initialRate,
-  };
-}
-
-function canEditReading(bill: Payment, bills: Payment[], todayIso: string) {
-  if (todayIso < bill.cycleEnd || bill.electricityPaidDate) return false;
-  const nextBill = bills
-    .filter((item) => item.tenantId === bill.tenantId && item.cycleStart > bill.cycleStart)
-    .sort((a, b) => a.cycleStart.localeCompare(b.cycleStart))[0];
-  return !nextBill?.electricity;
 }
 
 const styles = StyleSheet.create({
@@ -343,5 +296,5 @@ const styles = StyleSheet.create({
   list: { paddingBottom: spacing.xxl },
   sectionHeader: { gap: spacing.xxs, marginBottom: spacing.xs, marginTop: spacing.sm },
   sectionTitle: { fontWeight: '700' },
-  emptyText: { color: '#64748B', padding: spacing.lg, textAlign: 'center' },
+  emptyText: { padding: spacing.lg, textAlign: 'center' },
 });

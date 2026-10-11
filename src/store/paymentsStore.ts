@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { Payment, PaymentMethod } from '../types/payment';
 import { todayISO } from '../utils/date';
+import { isReadingWindowOpen } from '../utils/payments';
 import { useUnitsStore } from './unitsStore';
 
 export interface ElectricityEntry {
@@ -18,7 +19,7 @@ interface State {
   payments: Payment[];
   addPayment: (payment: Payment) => void;
   updatePayment: (id: string, updates: Partial<Payment>) => void;
-  deletePaymentsWhere: (predicate: (payment: Payment) => boolean) => void;
+  deletePayment: (id: string) => void;
   updateRentAmounts: (tenantId: string, todayIso: string, amount: number) => void;
   markRentPaid: (id: string, method: PaymentMethod, date?: string) => void;
   markRentUnpaid: (id: string) => void;
@@ -35,12 +36,14 @@ export const usePaymentsStore = create<State>()(
       addPayment: (payment) => set((s) => ({ payments: [payment, ...s.payments] })),
       updatePayment: (id, updates) =>
         set((s) => ({ payments: s.payments.map((p) => (p.id === id ? { ...p, ...updates } : p)) })),
-      deletePaymentsWhere: (predicate) =>
-        set((s) => ({ payments: s.payments.filter((payment) => !predicate(payment)) })),
+      deletePayment: (id) =>
+        set((s) => ({ payments: s.payments.filter((payment) => payment.id !== id) })),
       updateRentAmounts: (tenantId, todayIso, amount) =>
         set((s) => ({
           payments: s.payments.map((payment) =>
-            payment.tenantId === tenantId && !payment.rentPaidDate && todayIso < payment.dueDate
+            payment.tenantId === tenantId &&
+            !payment.rentPaidDate &&
+            !isReadingWindowOpen(payment, todayIso)
               ? { ...payment, rentAmount: amount }
               : payment
           ),
@@ -67,9 +70,19 @@ export const usePaymentsStore = create<State>()(
         }));
         const payment = usePaymentsStore.getState().payments.find((item) => item.id === id);
         if (payment) {
-          useUnitsStore.getState().updateUnit(payment.unitId, {
-            lastMeterReading: electricity.currentReading,
-          });
+          const hasLaterReading = usePaymentsStore
+            .getState()
+            .payments.some(
+              (item) =>
+                item.tenantId === payment.tenantId &&
+                item.cycleStart > payment.cycleStart &&
+                Boolean(item.electricity)
+            );
+          if (!hasLaterReading) {
+            useUnitsStore.getState().updateUnit(payment.unitId, {
+              lastMeterReading: electricity.currentReading,
+            });
+          }
         }
       },
       markElectricityPaid: (id, method, date = todayISO()) =>
@@ -107,7 +120,7 @@ export const usePaymentsStore = create<State>()(
       name: 'rm-payments',
       version: 4,
       storage: createJSONStorage(() => AsyncStorage),
-      migrate: () => ({ payments: [] }),
+      migrate: (state, version) => (version < 4 ? { payments: [] } : state),
     }
   )
 );

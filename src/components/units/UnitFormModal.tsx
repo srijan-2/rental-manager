@@ -1,55 +1,79 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { Button, HelperText, Modal, Portal, Text, TextInput, useTheme } from 'react-native-paper';
 import { BuildingPicker } from '../common/BuildingPicker';
 import { radius, spacing } from '../../styles/layout';
-import { AddUnitFormValues } from '../../types/unit';
+import { AddUnitFormValues, RentalUnit } from '../../types/unit';
 import { formatINRInput, parseCurrencyInput } from '../../utils';
+
 interface Props {
   visible: boolean;
+  unit?: RentalUnit | null;
   onDismiss: () => void;
   onSubmitUnit: (values: AddUnitFormValues) => void;
 }
+
 const INITIAL: AddUnitFormValues = {
   buildingId: '',
   unitNumber: '',
   monthlyRent: '',
   securityDeposit: '',
   subMeterId: '',
-  prepaidElectricityBalance: '0',
 };
-export function AddUnitModal({ visible, onDismiss, onSubmitUnit }: Props) {
+
+function valuesForUnit(unit?: RentalUnit | null): AddUnitFormValues {
+  if (!unit) return INITIAL;
+  return {
+    buildingId: unit.buildingId,
+    unitNumber: unit.unitNumber,
+    monthlyRent: formatINRInput(String(unit.monthlyRent)),
+    securityDeposit:
+      unit.securityDeposit === undefined ? '' : formatINRInput(String(unit.securityDeposit)),
+    subMeterId: unit.subMeterId ?? '',
+  };
+}
+
+export function UnitFormModal({ visible, unit, onDismiss, onSubmitUnit }: Props) {
   const theme = useTheme();
   const {
     control,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<AddUnitFormValues>({ defaultValues: INITIAL });
+  } = useForm<AddUnitFormValues>({
+    defaultValues: INITIAL,
+  });
   const [submitError, setSubmitError] = useState('');
+  const editing = Boolean(unit);
+
+  useEffect(() => {
+    if (visible) reset(valuesForUnit(unit));
+  }, [reset, unit, visible]);
+
   const close = () => {
     reset(INITIAL);
     setSubmitError('');
     onDismiss();
   };
-  const submit = (v: AddUnitFormValues) => {
+  const submit = (values: AddUnitFormValues) => {
     try {
-      onSubmitUnit(v);
+      onSubmitUnit(values);
       close();
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : 'Unable to add unit');
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to save unit');
     }
   };
+
   return (
     <Portal>
       <Modal
         visible={visible}
         onDismiss={close}
-        contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surface }]}
+        contentContainerStyle={[styles.modal, { backgroundColor: theme.colors.surfaceVariant }]}
       >
         <Text variant="titleLarge" style={styles.title}>
-          Add New Unit / Flat
+          {editing ? 'Edit Unit' : 'Add New Unit / Flat'}
         </Text>
         <Controller
           control={control}
@@ -98,6 +122,11 @@ export function AddUnitModal({ visible, onDismiss, onSubmitUnit }: Props) {
         <HelperText type="error" visible={Boolean(errors.monthlyRent)}>
           {errors.monthlyRent?.message}
         </HelperText>
+        {editing ? (
+          <HelperText type="info">
+            Default rent for new tenants. An existing tenant's rent is not changed.
+          </HelperText>
+        ) : null}
         <Controller
           control={control}
           name="securityDeposit"
@@ -124,33 +153,20 @@ export function AddUnitModal({ visible, onDismiss, onSubmitUnit }: Props) {
             />
           )}
         />
-        <Controller
-          control={control}
-          name="prepaidElectricityBalance"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              label="Opening prepaid electricity balance"
-              mode="outlined"
-              keyboardType="numeric"
-              value={value}
-              onChangeText={(v) => onChange(formatINRInput(v))}
-              left={<TextInput.Affix text="₹" />}
-            />
-          )}
-        />
         <HelperText type="error" visible={Boolean(submitError)}>
           {submitError}
         </HelperText>
         <View style={styles.actions}>
           <Button onPress={close}>Cancel</Button>
           <Button mode="contained" onPress={handleSubmit(submit)}>
-            Save Unit
+            {editing ? 'Save changes' : 'Save Unit'}
           </Button>
         </View>
       </Modal>
     </Portal>
   );
 }
+
 const styles = StyleSheet.create({
   modal: { borderRadius: radius.md, margin: spacing.md, padding: spacing.md, gap: 2 },
   title: { fontWeight: '700', marginBottom: spacing.xs },

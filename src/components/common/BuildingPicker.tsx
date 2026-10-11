@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal as RNModal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Dialog, HelperText, Portal, Text, TextInput, useTheme } from 'react-native-paper';
+import { Button, HelperText, Text, useTheme } from 'react-native-paper';
+import { BuildingFormDialog } from '../units/BuildingFormDialog';
 import { useBuildingsStore } from '../../store/buildingsStore';
 interface Props {
   value: string;
@@ -13,20 +14,7 @@ export function BuildingPicker({ value, onChange, error }: Props) {
   const add = useBuildingsStore((s) => s.addBuilding);
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState(false);
-  const [name, setName] = useState('');
-  const [nameError, setNameError] = useState('');
   const selected = buildings.find((b) => b.id === value);
-  const save = () => {
-    try {
-      const b = add(name);
-      onChange(b.id);
-      setName('');
-      setNameError('');
-      setDialog(false);
-    } catch (e) {
-      setNameError(e instanceof Error ? e.message : 'Unable to add building');
-    }
-  };
   return (
     <>
       <Pressable
@@ -50,7 +38,10 @@ export function BuildingPicker({ value, onChange, error }: Props) {
         animationType="slide"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
+        <Pressable
+          style={[styles.overlay, { backgroundColor: theme.colors.backdrop }]}
+          onPress={() => setOpen(false)}
+        >
           <View
             style={[styles.sheet, { backgroundColor: theme.colors.surface }]}
             onStartShouldSetResponder={() => true}
@@ -82,30 +73,15 @@ export function BuildingPicker({ value, onChange, error }: Props) {
           </View>
         </Pressable>
       </RNModal>
-      <Portal>
-        <Dialog visible={dialog} onDismiss={() => setDialog(false)}>
-          <Dialog.Title>Add Building</Dialog.Title>
-          <Dialog.Content>
-            <TextInput
-              label="Building name"
-              mode="outlined"
-              value={name}
-              onChangeText={(v) => {
-                setName(v);
-                setNameError('');
-              }}
-              error={Boolean(nameError)}
-            />
-            <HelperText type="error" visible={Boolean(nameError)}>
-              {nameError}
-            </HelperText>
-          </Dialog.Content>
-          <Dialog.Actions>
-            <Button onPress={() => setDialog(false)}>Cancel</Button>
-            <Button onPress={save}>Save</Button>
-          </Dialog.Actions>
-        </Dialog>
-      </Portal>
+      <BuildingFormDialog
+        visible={dialog}
+        title="Add Building"
+        onDismiss={() => setDialog(false)}
+        onSave={(name) => {
+          const building = add(name);
+          onChange(building.id);
+        }}
+      />
     </>
   );
 }

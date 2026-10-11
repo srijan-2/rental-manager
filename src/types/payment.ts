@@ -11,6 +11,7 @@ export interface Payment {
   dueDate: string;
   periodLabel: string;
   rentAmount: number;
+  openingReading?: number;
   rentPaidDate?: string;
   rentMethod?: PaymentMethod;
   electricity?: {
