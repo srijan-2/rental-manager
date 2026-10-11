@@ -3,15 +3,19 @@ import { StyleSheet, View } from 'react-native';
 import { Button, Chip, Surface, Text, useTheme } from 'react-native-paper';
 import { radius, spacing } from '../../styles/layout';
 import { Payment } from '../../types/payment';
+import { RentalUnit } from '../../types/unit';
+import { Building } from '../../types/building';
 import { formatINR, formatIndianDate } from '../../utils';
 
 interface PaymentCardProps {
   payment: Payment;
-  tenantName: string;
+  tenantDisplayName: string;
+  unit?: RentalUnit;
+  building?: Building;
   onMarkAsPaid: (paymentId: string) => void;
 }
 
-export const PaymentCard = memo(({ payment, tenantName, onMarkAsPaid }: PaymentCardProps) => {
+export const PaymentCard = memo(({ payment, tenantDisplayName, unit, building, onMarkAsPaid }: PaymentCardProps) => {
   const theme = useTheme();
   const isPaid = payment.status === 'Paid';
 
@@ -33,10 +37,10 @@ export const PaymentCard = memo(({ payment, tenantName, onMarkAsPaid }: PaymentC
       <View style={styles.row}>
         <View style={styles.details}>
           <Text variant="titleMedium" style={styles.name}>
-            {tenantName}
+            {tenantDisplayName}
           </Text>
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            {payment.unitNumber}
+            {unit && building ? `${building.name} · ${unit.unitNumber}` : 'Unknown unit'}
           </Text>
         </View>
         <Chip

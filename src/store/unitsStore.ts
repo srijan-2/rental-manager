@@ -1,28 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { MOCK_UNITS } from '../data/mockUnits';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { RentalUnit } from '../types/unit';
-
-interface UnitsState {
-  units: RentalUnit[];
-  addUnit: (unit: RentalUnit) => void;
-  updateUnit: (unitId: string, updates: Partial<RentalUnit>) => void;
-  deleteUnit: (unitId: string) => void;
-}
-
-export const useUnitsStore = create<UnitsState>((set) => ({
-  units: MOCK_UNITS,
-  addUnit: (unit) =>
-    set((state) => ({
-      units: [unit, ...state.units],
-    })),
-  updateUnit: (unitId, updates) =>
-    set((state) => ({
-      units: state.units.map((unit) =>
-        unit.id === unitId ? { ...unit, ...updates } : unit
-      ),
-    })),
-  deleteUnit: (unitId) =>
-    set((state) => ({
-      units: state.units.filter((unit) => unit.id !== unitId),
-    })),
-}));
+import { useBuildingsStore } from './buildingsStore';
+interface UnitsState { units: RentalUnit[]; addUnit: (unit: RentalUnit) => void; updateUnit: (unitId: string, updates: Partial<RentalUnit>) => void; deleteUnit: (unitId: string) => void; }
+export const useUnitsStore = create<UnitsState>()(persist((set, get) => ({
+ units: [], addUnit: (unit) => { const building = useBuildingsStore.getState().getBuildingById(unit.buildingId); if (!building) throw new Error('Building is required'); const unitNumber = unit.unitNumber.trim(); if (!unitNumber) throw new Error('Unit number is required'); if (get().units.some((x) => x.buildingId === unit.buildingId && x.unitNumber.trim().toLowerCase() === unitNumber.toLowerCase())) throw new Error(`${unitNumber} already exists in ${building.name}`); set((s) => ({ units: [{ ...unit, unitNumber }, ...s.units] })); },
+ updateUnit: (id, updates) => set((s) => ({ units: s.units.map((u) => u.id === id ? { ...u, ...updates } : u) })),
+ deleteUnit: (id) => set((s) => ({ units: s.units.filter((u) => u.id !== id) })),
+}), { name: 'rm-units', version: 2, storage: createJSONStorage(() => AsyncStorage), migrate: (state, version) => version < 2 ? { units: [] } : state }));

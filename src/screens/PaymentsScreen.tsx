@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { Surface, Text, useTheme } from 'react-native-paper';
 import { PaymentCard } from '../components/payments/PaymentCard';
-import { usePaymentsStore, useTenantsStore } from '../store';
+import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { formatINR } from '../utils';
 
@@ -11,8 +11,10 @@ export function PaymentsScreen() {
   const payments = usePaymentsStore((state) => state.payments);
   const updatePayment = usePaymentsStore((state) => state.updatePayment);
   const tenants = useTenantsStore((state) => state.tenants);
+  const units = useUnitsStore((state) => state.units);
+  const buildings = useBuildingsStore((state) => state.buildings);
 
-  const tenantNameById = useMemo(() => {
+  const tenantDisplayNameById = useMemo(() => {
     const map = new Map<string, string>();
     tenants.forEach((tenant) => {
       map.set(tenant.id, tenant.name);
@@ -93,7 +95,9 @@ export function PaymentsScreen() {
         renderItem={({ item }) => (
           <PaymentCard
             payment={item}
-            tenantName={tenantNameById.get(item.tenantId) ?? 'Unknown Tenant'}
+            tenantDisplayName={tenantDisplayNameById.get(item.tenantId) ?? 'Unknown Tenant'}
+            unit={units.find((unit) => unit.id === item.unitId)}
+            building={buildings.find((building) => building.id === units.find((unit) => unit.id === item.unitId)?.buildingId)}
             onMarkAsPaid={markAsPaid}
           />
         )}

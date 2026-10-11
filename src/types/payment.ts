@@ -3,7 +3,7 @@ export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue';
 export interface Payment {
   id: string;
   tenantId: string;
-  unitNumber: string;
+  unitId: string;
   amount: number;
   dueDate: string;
   paidDate?: string;

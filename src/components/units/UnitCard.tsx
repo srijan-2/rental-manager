@@ -3,14 +3,16 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Chip, Surface, Text, useTheme } from 'react-native-paper';
 import { radius, spacing } from '../../styles/layout';
 import { RentalUnit } from '../../types/unit';
-import { formatINR, formatIndianDate } from '../../utils';
+import { formatINR } from '../../utils';
 
 interface UnitCardProps {
   unit: RentalUnit;
+  buildingName: string;
+  tenantDisplayName?: string;
   onPress?: (unit: RentalUnit) => void;
 }
 
-export const UnitCard = memo(({ unit, onPress }: UnitCardProps) => {
+export const UnitCard = memo(({ unit, buildingName, tenantDisplayName, onPress }: UnitCardProps) => {
   const theme = useTheme();
   const isOccupied = unit.status === 'Occupied';
 
@@ -29,10 +31,10 @@ export const UnitCard = memo(({ unit, onPress }: UnitCardProps) => {
       <View style={styles.row}>
         <View>
           <Text variant="titleMedium" style={styles.unitNumber}>
-            {unit.unitNumber}
+            {buildingName} · {unit.unitNumber}
           </Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-            Tenant: {unit.tenantName}
+            Tenant: {tenantDisplayName ?? 'Vacant'}
           </Text>
         </View>
 
@@ -54,9 +56,9 @@ export const UnitCard = memo(({ unit, onPress }: UnitCardProps) => {
         </View>
         <View>
           <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Due Date
+            Security Deposit
           </Text>
-          <Text variant="titleMedium">{formatIndianDate(unit.dueDate)}</Text>
+          <Text variant="titleMedium">{formatINR(unit.securityDeposit ?? 0)}</Text>
         </View>
       </View>
     </Surface>

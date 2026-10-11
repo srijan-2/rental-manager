@@ -1,7 +1,6 @@
 export interface ElectricityUsageRecord {
   id: string;
   unitId: string;
-  unitNumber: string;
   monthLabel: string;
   previousMeterReading: number;
   currentMeterReading: number;

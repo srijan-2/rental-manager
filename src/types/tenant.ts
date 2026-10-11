@@ -2,7 +2,7 @@ export interface Tenant {
   id: string;
   name: string;
   phone: string;
-  assignedUnit: string;
+  unitId: string;
   monthlyRent: number;
   moveInDate: string;
 }
@@ -10,7 +10,7 @@ export interface Tenant {
 export interface TenantFormValues {
   name: string;
   phone: string;
-  assignedUnit: string;
+  unitId: string;
   monthlyRent: string;
   moveInDate: string;
 }

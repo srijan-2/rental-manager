@@ -3,15 +3,19 @@ import { StyleSheet, View } from 'react-native';
 import { Avatar, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 import { radius, spacing } from '../../styles/layout';
 import { Tenant } from '../../types/tenant';
+import { Building } from '../../types/building';
+import { RentalUnit } from '../../types/unit';
 import { formatINR, formatIndianDate } from '../../utils';
 
 interface TenantCardProps {
   tenant: Tenant;
+  unit?: RentalUnit;
+  building?: Building;
   onEdit: (tenant: Tenant) => void;
   onDelete: (tenantId: string) => void;
 }
 
-export const TenantCard = memo(({ tenant, onEdit, onDelete }: TenantCardProps) => {
+export const TenantCard = memo(({ tenant, unit, building, onEdit, onDelete }: TenantCardProps) => {
   const theme = useTheme();
 
   return (
@@ -24,7 +28,7 @@ export const TenantCard = memo(({ tenant, onEdit, onDelete }: TenantCardProps) =
     >
       <View style={styles.header}>
         <View style={styles.profile}>
-          <Avatar.Text size={42} label={tenant.name.slice(0, 2).toUpperCase()} />
+          <Avatar.Text size={42} label={tenant.name.slice(0, 2)} />
           <View>
             <Text variant="titleMedium" style={styles.name}>{tenant.name}</Text>
             <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{tenant.phone}</Text>
@@ -37,7 +41,7 @@ export const TenantCard = memo(({ tenant, onEdit, onDelete }: TenantCardProps) =
       </View>
 
       <View style={styles.meta}>
-        <Text variant="bodyMedium">Unit: {tenant.assignedUnit}</Text>
+        <Text variant="bodyMedium">Unit: {unit && building ? `${building.name} · ${unit.unitNumber}` : 'Unknown unit'}</Text>
         <Text variant="bodyMedium">Rent: {formatINR(tenant.monthlyRent)}/month</Text>
       </View>
       <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>

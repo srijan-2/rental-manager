@@ -13,7 +13,7 @@ import {
 import { CollapsibleSection } from '../components/common/CollapsibleSection';
 import { getUnitDetailsExtras } from '../data/mockUnitDetails';
 import { UnitsStackParamList } from '../navigation/UnitsStack';
-import { useElectricityBillsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
+import { useBuildingsStore, useElectricityBillsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { formatINR, formatIndianDate } from '../utils';
 
@@ -37,6 +37,7 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   const theme = useTheme();
   const { unitId } = route.params;
   const unit = useUnitsStore((state) => state.units.find((item) => item.id === unitId));
+  const buildings = useBuildingsStore((state) => state.buildings);
   const tenants = useTenantsStore((state) => state.tenants);
   const payments = usePaymentsStore((state) => state.payments);
   const electricityRecords = useElectricityBillsStore((state) => state.records);
@@ -45,13 +46,13 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   const [newReading, setNewReading] = useState('');
 
   const tenant = useMemo(
-    () => tenants.find((item) => item.assignedUnit === unit?.unitNumber),
-    [tenants, unit?.unitNumber]
+    () => unit?.tenantId ? tenants.find((item) => item.id === unit.tenantId) : undefined,
+    [tenants, unit?.tenantId]
   );
 
   const unitPayments = useMemo(
-    () => payments.filter((payment) => payment.unitNumber === unit?.unitNumber),
-    [payments, unit?.unitNumber]
+    () => payments.filter((payment) => payment.unitId === unitId),
+    [payments, unitId]
   );
 
   const latestElectricity = useMemo(
@@ -79,6 +80,7 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
           <Text variant="headlineSmall" style={styles.heading}>
             {unit.unitNumber}
           </Text>
+          <Text variant="bodyMedium">{buildings.find((building) => building.id === unit.buildingId)?.name ?? 'Unknown building'}</Text>
           <Chip
             compact
             style={{ backgroundColor: isOccupied ? '#14532d66' : '#78350f66' }}
@@ -107,7 +109,6 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
         <CollapsibleSection title="Rent Information" icon="currency-inr">
           <DetailRow label="Monthly Rent" value={`${formatINR(unit.monthlyRent)}/month`} />
           <DetailRow label="Payment Status" value={currentPaymentStatus} />
-          <DetailRow label="Rent Due Date" value={formatIndianDate(unit.dueDate)} />
           <Divider style={styles.divider} />
           <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             Payment History

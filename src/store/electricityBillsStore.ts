@@ -1,25 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { MOCK_ELECTRICITY_BILLS } from '../data/mockElectricityBills';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import { ElectricityUsageRecord } from '../types/electricityBill';
-
-interface ElectricityBillsState {
-  records: ElectricityUsageRecord[];
-  addRecord: (record: ElectricityUsageRecord) => void;
-  updateRecord: (recordId: string, updates: Partial<ElectricityUsageRecord>) => void;
-  deleteRecord: (recordId: string) => void;
-}
-
-export const useElectricityBillsStore = create<ElectricityBillsState>((set) => ({
-  records: MOCK_ELECTRICITY_BILLS,
-  addRecord: (record) => set((state) => ({ records: [record, ...state.records] })),
-  updateRecord: (recordId, updates) =>
-    set((state) => ({
-      records: state.records.map((record) =>
-        record.id === recordId ? { ...record, ...updates } : record
-      ),
-    })),
-  deleteRecord: (recordId) =>
-    set((state) => ({
-      records: state.records.filter((record) => record.id !== recordId),
-    })),
-}));
+interface State { records: ElectricityUsageRecord[]; addRecord: (record: ElectricityUsageRecord) => void; updateRecord: (id: string, updates: Partial<ElectricityUsageRecord>) => void; deleteRecord: (id: string) => void; }
+export const useElectricityBillsStore = create<State>()(persist((set) => ({ records: [], addRecord: (record) => set((s) => ({ records: [record, ...s.records] })), updateRecord: (id, updates) => set((s) => ({ records: s.records.map((r) => r.id === id ? { ...r, ...updates } : r) })), deleteRecord: (id) => set((s) => ({ records: s.records.filter((r) => r.id !== id) })) }), { name: 'rm-electricity', version: 2, storage: createJSONStorage(() => AsyncStorage), migrate: (state, version) => version < 2 ? { records: [] } : state }));

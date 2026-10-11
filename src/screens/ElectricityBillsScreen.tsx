@@ -3,7 +3,7 @@ import { FlatList, StyleSheet, View, TouchableOpacity, ScrollView, Modal as RNMo
 import { Controller, useForm } from 'react-hook-form';
 import { Button, Surface, Text, TextInput, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useElectricityBillsStore, useUnitsStore } from '../store';
+import { useBuildingsStore, useElectricityBillsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { ElectricityRecordFormValues, ElectricityUsageRecord } from '../types/electricityBill';
 import { RentalUnit } from '../types/unit';
@@ -12,6 +12,7 @@ import {
   calculateRemainingPrepaidBalance,
   calculateUnitsConsumed,
   formatINR,
+  formatUnitLabel,
 } from '../utils';
 
 type BalanceSeverity = 'healthy' | 'warning' | 'critical';
@@ -180,6 +181,7 @@ const sheet = StyleSheet.create({
 export function ElectricityBillsScreen() {
   const theme = useTheme();
   const units = useUnitsStore((state) => state.units);
+  const buildings = useBuildingsStore((state) => state.buildings);
   const updateUnit = useUnitsStore((state) => state.updateUnit);
   const records = useElectricityBillsStore((state) => state.records);
   const addRecord = useElectricityBillsStore((state) => state.addRecord);
@@ -288,8 +290,12 @@ export function ElectricityBillsScreen() {
     [units]
   );
 
-  const unitOptions = units.map((u) => ({
-    label: `${u.unitNumber}  ·  ${formatINR(u.prepaidElectricityBalance ?? 0)} bal`,
+  const unitOptions = [...units].sort((a, b) => {
+    const ab = buildings.find((building) => building.id === a.buildingId)?.name ?? '';
+    const bb = buildings.find((building) => building.id === b.buildingId)?.name ?? '';
+    return ab.localeCompare(bb) || a.unitNumber.localeCompare(b.unitNumber);
+  }).map((u) => ({
+    label: `${formatUnitLabel(u, buildings.find((building) => building.id === u.buildingId))}  ·  ${formatINR(u.prepaidElectricityBalance ?? 0)} bal`,
     value: u.id,
   }));
 
@@ -313,7 +319,6 @@ export function ElectricityBillsScreen() {
     addRecord({
       id: `eb-${Date.now()}`,
       unitId: selected.id,
-      unitNumber: selected.unitNumber,
       monthLabel: values.monthLabel.trim(),
       previousMeterReading: previous,
       currentMeterReading: current,
@@ -355,7 +360,7 @@ export function ElectricityBillsScreen() {
         <View style={styles.cardRow}>
           <Text style={styles.cardMonth}>{item.monthLabel}</Text>
           <View style={styles.cardUnitBadge}>
-            <Text style={styles.cardUnitText}>{item.unitNumber}</Text>
+            <Text style={styles.cardUnitText}>{(() => { const unit = units.find((candidate) => candidate.id === item.unitId); return unit ? formatUnitLabel(unit, buildings.find((building) => building.id === unit.buildingId)) : 'Unknown unit'; })()}</Text>
           </View>
         </View>
 
@@ -409,8 +414,10 @@ export function ElectricityBillsScreen() {
       <Surface
         style={[styles.formCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}
         elevation={2}
+        pointerEvents={units.length === 0 ? 'none' : 'auto'}
       >
         <Text style={styles.sectionLabel}>NEW ENTRY</Text>
+        {units.length === 0 ? <Text style={styles.emptyText}>No units yet. Add a unit first.</Text> : null}
 
         {/* Unit selector */}
         <Controller
@@ -426,7 +433,7 @@ export function ElectricityBillsScreen() {
               >
                 <Text style={value ? styles.selectorValue : styles.selectorPlaceholder}>
                   {value
-                    ? units.find((u) => u.id === value)?.unitNumber ?? 'Select Unit'
+                    ? (selectedUnit ? formatUnitLabel(selectedUnit, buildings.find((b) => b.id === selectedUnit.buildingId)) : 'Select Unit')
                     : 'Select Unit'}
                 </Text>
                 {value && selectedUnit ? (
@@ -617,6 +624,7 @@ export function ElectricityBillsScreen() {
 
         <Button
           mode="contained"
+          disabled={units.length === 0}
           onPress={handleSubmit(onSubmit)}
           contentStyle={styles.saveButton}
           labelStyle={styles.saveLabel}
