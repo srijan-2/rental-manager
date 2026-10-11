@@ -4,7 +4,7 @@ import { Surface, Text, useTheme } from 'react-native-paper';
 import { PaymentCard } from '../components/payments/PaymentCard';
 import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
-import { formatINR } from '../utils';
+import { formatINR, todayISO } from '../utils';
 
 export function PaymentsScreen() {
   const theme = useTheme();
@@ -44,15 +44,16 @@ export function PaymentsScreen() {
   const unpaidCount = payments.length - paidCount;
 
   const markAsPaid = (paymentId: string) => {
-    const today = new Date().toISOString().split('T')[0];
     updatePayment(paymentId, {
       status: 'Paid',
-      paidDate: today,
+      paidDate: todayISO(),
     });
   };
 
   return (
-    <View style={[sharedStyles.screen, styles.screen, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[sharedStyles.screen, styles.screen, { backgroundColor: theme.colors.background }]}
+    >
       <View style={styles.header}>
         <Text variant="headlineSmall" style={styles.title}>
           Rent Payments
@@ -97,7 +98,10 @@ export function PaymentsScreen() {
             payment={item}
             tenantDisplayName={tenantDisplayNameById.get(item.tenantId) ?? 'Unknown Tenant'}
             unit={units.find((unit) => unit.id === item.unitId)}
-            building={buildings.find((building) => building.id === units.find((unit) => unit.id === item.unitId)?.buildingId)}
+            building={buildings.find(
+              (building) =>
+                building.id === units.find((unit) => unit.id === item.unitId)?.buildingId
+            )}
             onMarkAsPaid={markAsPaid}
           />
         )}

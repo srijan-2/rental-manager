@@ -12,59 +12,61 @@ interface UnitCardProps {
   onPress?: (unit: RentalUnit) => void;
 }
 
-export const UnitCard = memo(({ unit, buildingName, tenantDisplayName, onPress }: UnitCardProps) => {
-  const theme = useTheme();
-  const isOccupied = unit.status === 'Occupied';
+export const UnitCard = memo(
+  ({ unit, buildingName, tenantDisplayName, onPress }: UnitCardProps) => {
+    const theme = useTheme();
+    const isOccupied = unit.status === 'Occupied';
 
-  return (
-    <Pressable onPress={() => onPress?.(unit)}>
-    <Surface
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.colors.surface,
-          borderColor: theme.colors.outlineVariant,
-        },
-      ]}
-      elevation={2}
-    >
-      <View style={styles.row}>
-        <View>
-          <Text variant="titleMedium" style={styles.unitNumber}>
-            {buildingName} · {unit.unitNumber}
-          </Text>
-          <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-            Tenant: {tenantDisplayName ?? 'Vacant'}
-          </Text>
-        </View>
-
-        <Chip
-          compact
-          style={[styles.badge, { backgroundColor: isOccupied ? '#14532d66' : '#78350f66' }]}
-          textStyle={{ color: isOccupied ? '#86EFAC' : '#FCD34D', fontWeight: '700' }}
+    return (
+      <Pressable onPress={() => onPress?.(unit)}>
+        <Surface
+          style={[
+            styles.card,
+            {
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.outlineVariant,
+            },
+          ]}
+          elevation={2}
         >
-          {unit.status}
-        </Chip>
-      </View>
+          <View style={styles.row}>
+            <View>
+              <Text variant="titleMedium" style={styles.unitNumber}>
+                {buildingName} · {unit.unitNumber}
+              </Text>
+              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
+                Tenant: {tenantDisplayName ?? 'Vacant'}
+              </Text>
+            </View>
 
-      <View style={styles.metaRow}>
-        <View>
-          <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Monthly Rent
-          </Text>
-          <Text variant="titleMedium">{formatINR(unit.monthlyRent)}/month</Text>
-        </View>
-        <View>
-          <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Security Deposit
-          </Text>
-          <Text variant="titleMedium">{formatINR(unit.securityDeposit ?? 0)}</Text>
-        </View>
-      </View>
-    </Surface>
-    </Pressable>
-  );
-});
+            <Chip
+              compact
+              style={[styles.badge, { backgroundColor: isOccupied ? '#14532d66' : '#78350f66' }]}
+              textStyle={{ color: isOccupied ? '#86EFAC' : '#FCD34D', fontWeight: '700' }}
+            >
+              {unit.status}
+            </Chip>
+          </View>
+
+          <View style={styles.metaRow}>
+            <View>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Monthly Rent
+              </Text>
+              <Text variant="titleMedium">{formatINR(unit.monthlyRent)}/month</Text>
+            </View>
+            <View>
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                Security Deposit
+              </Text>
+              <Text variant="titleMedium">{formatINR(unit.securityDeposit ?? 0)}</Text>
+            </View>
+          </View>
+        </Surface>
+      </Pressable>
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   card: {

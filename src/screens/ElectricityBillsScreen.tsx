@@ -1,5 +1,12 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
-import { FlatList, StyleSheet, View, TouchableOpacity, ScrollView, Modal as RNModal } from 'react-native';
+import {
+  FlatList,
+  StyleSheet,
+  View,
+  TouchableOpacity,
+  ScrollView,
+  Modal as RNModal,
+} from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { Button, Surface, Text, TextInput, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,9 +26,9 @@ type BalanceSeverity = 'healthy' | 'warning' | 'critical';
 
 // What was auto-filled from the last record for a given unit
 interface AutoFilledContext {
-  previousMeterReading: number;    // the currentMeterReading of the last record
-  ratePerUnit: number;             // the ratePerUnit of the last record
-  sourceMonth: string;             // e.g. "April 2026" — for user-facing label
+  previousMeterReading: number; // the currentMeterReading of the last record
+  ratePerUnit: number; // the ratePerUnit of the last record
+  sourceMonth: string; // e.g. "April 2026" — for user-facing label
 }
 
 function toNumber(value: string) {
@@ -81,14 +88,16 @@ interface DropdownSheetProps {
   onDismiss: () => void;
 }
 
-function DropdownSheet({ visible, title, options, selected, onSelect, onDismiss }: DropdownSheetProps) {
+function DropdownSheet({
+  visible,
+  title,
+  options,
+  selected,
+  onSelect,
+  onDismiss,
+}: DropdownSheetProps) {
   return (
-    <RNModal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onDismiss}
-    >
+    <RNModal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
       <TouchableOpacity style={sheet.overlay} activeOpacity={1} onPress={onDismiss} />
       <View style={sheet.container}>
         <View style={sheet.handle} />
@@ -100,7 +109,10 @@ function DropdownSheet({ visible, title, options, selected, onSelect, onDismiss 
               <TouchableOpacity
                 key={opt.value}
                 style={[sheet.option, isActive && sheet.optionActive]}
-                onPress={() => { onSelect(opt.value); onDismiss(); }}
+                onPress={() => {
+                  onSelect(opt.value);
+                  onDismiss();
+                }}
                 activeOpacity={0.7}
               >
                 <Text style={[sheet.optionLabel, isActive && sheet.optionLabelActive]}>
@@ -196,7 +208,14 @@ export function ElectricityBillsScreen() {
 
   const monthOptions = useMemo(() => getMonthOptions(), []);
 
-  const { control, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<ElectricityRecordFormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    reset,
+    setValue,
+    formState: { errors },
+  } = useForm<ElectricityRecordFormValues>({
     defaultValues: createDefaultFormValues(),
   });
 
@@ -230,19 +249,13 @@ export function ElectricityBillsScreen() {
       setAutoFilledCtx(ctx);
 
       // Auto-fill previous reading and lock it
-      setValue(
-        'previousMeterReading',
-        String(lastRecord.currentMeterReading),
-        { shouldValidate: false }
-      );
+      setValue('previousMeterReading', String(lastRecord.currentMeterReading), {
+        shouldValidate: false,
+      });
       setPrevReadingLocked(true);
 
       // Carry forward rate (less critical, but still a time saver)
-      setValue(
-        'ratePerUnit',
-        String(lastRecord.ratePerUnit),
-        { shouldValidate: false }
-      );
+      setValue('ratePerUnit', String(lastRecord.ratePerUnit), { shouldValidate: false });
       setRateCarriedOver(true);
     } else {
       // First-time entry for this unit — no history, clear any leftover
@@ -255,7 +268,7 @@ export function ElectricityBillsScreen() {
 
     // Always clear current reading when switching units
     setValue('currentMeterReading', '', { shouldValidate: false });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUnitId]);
 
   const handleUnlockPrevReading = useCallback(() => {
@@ -281,23 +294,32 @@ export function ElectricityBillsScreen() {
   const balanceSeverity = getBalanceSeverity(remainingPrepaidBalance, hasBalancePreview);
 
   const balanceStatusColor =
-    balanceSeverity === 'critical' ? '#F87171' :
-    balanceSeverity === 'warning'  ? '#FBBF24' :
-    balanceSeverity === 'healthy'  ? '#4ADE80' : '#CBD5E1';
+    balanceSeverity === 'critical'
+      ? '#F87171'
+      : balanceSeverity === 'warning'
+        ? '#FBBF24'
+        : balanceSeverity === 'healthy'
+          ? '#4ADE80'
+          : '#CBD5E1';
 
   const totalPrepaidBalance = useMemo(
     () => units.reduce((sum, unit) => sum + (unit.prepaidElectricityBalance ?? 0), 0),
     [units]
   );
 
-  const unitOptions = [...units].sort((a, b) => {
-    const ab = buildings.find((building) => building.id === a.buildingId)?.name ?? '';
-    const bb = buildings.find((building) => building.id === b.buildingId)?.name ?? '';
-    return ab.localeCompare(bb) || a.unitNumber.localeCompare(b.unitNumber);
-  }).map((u) => ({
-    label: `${formatUnitLabel(u, buildings.find((building) => building.id === u.buildingId))}  ·  ${formatINR(u.prepaidElectricityBalance ?? 0)} bal`,
-    value: u.id,
-  }));
+  const unitOptions = [...units]
+    .sort((a, b) => {
+      const ab = buildings.find((building) => building.id === a.buildingId)?.name ?? '';
+      const bb = buildings.find((building) => building.id === b.buildingId)?.name ?? '';
+      return ab.localeCompare(bb) || a.unitNumber.localeCompare(b.unitNumber);
+    })
+    .map((u) => ({
+      label: `${formatUnitLabel(
+        u,
+        buildings.find((building) => building.id === u.buildingId)
+      )}  ·  ${formatINR(u.prepaidElectricityBalance ?? 0)} bal`,
+      value: u.id,
+    }));
 
   const monthOptionsMapped = monthOptions.map((m) => ({ label: m, value: m }));
 
@@ -342,13 +364,14 @@ export function ElectricityBillsScreen() {
 
   const renderHistoryCard = ({ item }: { item: ElectricityUsageRecord }) => {
     const sev = getBalanceSeverity(item.remainingPrepaidBalance, true);
-    const balColor =
-      sev === 'critical' ? '#F87171' :
-      sev === 'warning' ? '#FBBF24' : '#64748B';
+    const balColor = sev === 'critical' ? '#F87171' : sev === 'warning' ? '#FBBF24' : '#64748B';
 
     return (
       <Surface
-        style={[styles.billCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}
+        style={[
+          styles.billCard,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
+        ]}
         elevation={1}
       >
         {/* Primary: charge amount */}
@@ -360,7 +383,17 @@ export function ElectricityBillsScreen() {
         <View style={styles.cardRow}>
           <Text style={styles.cardMonth}>{item.monthLabel}</Text>
           <View style={styles.cardUnitBadge}>
-            <Text style={styles.cardUnitText}>{(() => { const unit = units.find((candidate) => candidate.id === item.unitId); return unit ? formatUnitLabel(unit, buildings.find((building) => building.id === unit.buildingId)) : 'Unknown unit'; })()}</Text>
+            <Text style={styles.cardUnitText}>
+              {(() => {
+                const unit = units.find((candidate) => candidate.id === item.unitId);
+                return unit
+                  ? formatUnitLabel(
+                      unit,
+                      buildings.find((building) => building.id === unit.buildingId)
+                    )
+                  : 'Unknown unit';
+              })()}
+            </Text>
           </View>
         </View>
 
@@ -399,9 +432,7 @@ export function ElectricityBillsScreen() {
       {/* ── Page header ── */}
       <View style={styles.header}>
         <Text style={styles.pageTitle}>Electricity</Text>
-        <Text style={styles.pageSubtitle}>
-          Track sub-meter usage and prepaid balances
-        </Text>
+        <Text style={styles.pageSubtitle}>Track sub-meter usage and prepaid balances</Text>
       </View>
 
       {/* ── Total balance pill ── */}
@@ -412,12 +443,17 @@ export function ElectricityBillsScreen() {
 
       {/* ── Entry form ── */}
       <Surface
-        style={[styles.formCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant }]}
+        style={[
+          styles.formCard,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
+        ]}
         elevation={2}
         pointerEvents={units.length === 0 ? 'none' : 'auto'}
       >
         <Text style={styles.sectionLabel}>NEW ENTRY</Text>
-        {units.length === 0 ? <Text style={styles.emptyText}>No units yet. Add a unit first.</Text> : null}
+        {units.length === 0 ? (
+          <Text style={styles.emptyText}>No units yet. Add a unit first.</Text>
+        ) : null}
 
         {/* Unit selector */}
         <Controller
@@ -433,7 +469,12 @@ export function ElectricityBillsScreen() {
               >
                 <Text style={value ? styles.selectorValue : styles.selectorPlaceholder}>
                   {value
-                    ? (selectedUnit ? formatUnitLabel(selectedUnit, buildings.find((b) => b.id === selectedUnit.buildingId)) : 'Select Unit')
+                    ? selectedUnit
+                      ? formatUnitLabel(
+                          selectedUnit,
+                          buildings.find((b) => b.id === selectedUnit.buildingId)
+                        )
+                      : 'Select Unit'
                     : 'Select Unit'}
                 </Text>
                 {value && selectedUnit ? (
@@ -473,14 +514,10 @@ export function ElectricityBillsScreen() {
             <View style={styles.lockedField}>
               <View style={styles.lockedFieldLeft}>
                 <Text style={styles.lockedFieldLabel}>Previous Reading</Text>
-                <Text style={styles.lockedFieldValue}>
-                  {autoFilledCtx.previousMeterReading}
-                </Text>
+                <Text style={styles.lockedFieldValue}>{autoFilledCtx.previousMeterReading}</Text>
               </View>
               <View style={styles.lockedFieldRight}>
-                <Text style={styles.lockedFieldSource}>
-                  from {autoFilledCtx.sourceMonth}
-                </Text>
+                <Text style={styles.lockedFieldSource}>from {autoFilledCtx.sourceMonth}</Text>
                 <TouchableOpacity
                   style={styles.unlockBtn}
                   onPress={handleUnlockPrevReading}
@@ -534,9 +571,9 @@ export function ElectricityBillsScreen() {
                   dense
                   right={
                     /* Show a subtle "edited" indicator if the user overrode an auto-fill */
-                    autoFilledCtx && !prevReadingLocked
-                      ? <TextInput.Icon icon="pencil" color="#FBBF24" size={14} />
-                      : undefined
+                    autoFilledCtx && !prevReadingLocked ? (
+                      <TextInput.Icon icon="pencil" color="#FBBF24" size={14} />
+                    ) : undefined
                   }
                 />
               )}
@@ -573,13 +610,16 @@ export function ElectricityBillsScreen() {
               mode="outlined"
               keyboardType="decimal-pad"
               value={value}
-              onChangeText={(v) => { onChange(v); setRateCarriedOver(false); }}
+              onChangeText={(v) => {
+                onChange(v);
+                setRateCarriedOver(false);
+              }}
               error={Boolean(errors.ratePerUnit)}
               left={<TextInput.Affix text="₹" />}
               right={
-                rateCarriedOver
-                  ? <TextInput.Icon icon="content-copy" color="#64748B" size={14} />
-                  : undefined
+                rateCarriedOver ? (
+                  <TextInput.Icon icon="content-copy" color="#64748B" size={14} />
+                ) : undefined
               }
               style={styles.input}
               contentStyle={styles.inputContent}
@@ -613,11 +653,11 @@ export function ElectricityBillsScreen() {
           {/* Warning strip — only shown when balance is low */}
           {balanceSeverity === 'critical' ? (
             <View style={[styles.warnStrip, styles.warnCritical]}>
-              <Text style={styles.warnText}>⚠  Critical — top up before next cycle</Text>
+              <Text style={styles.warnText}>⚠ Critical — top up before next cycle</Text>
             </View>
           ) : balanceSeverity === 'warning' ? (
             <View style={[styles.warnStrip, styles.warnLow]}>
-              <Text style={styles.warnText}>⚠  Balance below ₹500</Text>
+              <Text style={styles.warnText}>⚠ Balance below ₹500</Text>
             </View>
           ) : null}
         </View>
@@ -641,7 +681,9 @@ export function ElectricityBillsScreen() {
   );
 
   return (
-    <View style={[sharedStyles.screen, styles.screen, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[sharedStyles.screen, styles.screen, { backgroundColor: theme.colors.background }]}
+    >
       <FlatList
         data={records}
         keyExtractor={(item) => item.id}
@@ -805,8 +847,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 2,
   },
-  warnCritical: { backgroundColor: 'rgba(248,113,113,0.12)', borderWidth: 1, borderColor: 'rgba(248,113,113,0.25)' },
-  warnLow: { backgroundColor: 'rgba(251,191,36,0.1)', borderWidth: 1, borderColor: 'rgba(251,191,36,0.2)' },
+  warnCritical: {
+    backgroundColor: 'rgba(248,113,113,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(248,113,113,0.25)',
+  },
+  warnLow: {
+    backgroundColor: 'rgba(251,191,36,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.2)',
+  },
   warnText: { fontSize: 12, fontWeight: '700', color: '#F1F5F9' },
 
   // Save button

@@ -30,18 +30,28 @@ export const TenantCard = memo(({ tenant, unit, building, onEdit, onDelete }: Te
         <View style={styles.profile}>
           <Avatar.Text size={42} label={tenant.name.slice(0, 2)} />
           <View>
-            <Text variant="titleMedium" style={styles.name}>{tenant.name}</Text>
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{tenant.phone}</Text>
+            <Text variant="titleMedium" style={styles.name}>
+              {tenant.name}
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              {tenant.phone}
+            </Text>
           </View>
         </View>
         <View style={styles.actions}>
           <IconButton icon="pencil-outline" onPress={() => onEdit(tenant)} />
-          <IconButton icon="trash-can-outline" iconColor="#F87171" onPress={() => onDelete(tenant.id)} />
+          <IconButton
+            icon="trash-can-outline"
+            iconColor="#F87171"
+            onPress={() => onDelete(tenant.id)}
+          />
         </View>
       </View>
 
       <View style={styles.meta}>
-        <Text variant="bodyMedium">Unit: {unit && building ? `${building.name} · ${unit.unitNumber}` : 'Unknown unit'}</Text>
+        <Text variant="bodyMedium">
+          Unit: {unit && building ? `${building.name} · ${unit.unitNumber}` : 'Unknown unit'}
+        </Text>
         <Text variant="bodyMedium">Rent: {formatINR(tenant.monthlyRent)}/month</Text>
       </View>
       <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>

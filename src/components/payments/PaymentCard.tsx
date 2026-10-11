@@ -15,70 +15,78 @@ interface PaymentCardProps {
   onMarkAsPaid: (paymentId: string) => void;
 }
 
-export const PaymentCard = memo(({ payment, tenantDisplayName, unit, building, onMarkAsPaid }: PaymentCardProps) => {
-  const theme = useTheme();
-  const isPaid = payment.status === 'Paid';
+export const PaymentCard = memo(
+  ({ payment, tenantDisplayName, unit, building, onMarkAsPaid }: PaymentCardProps) => {
+    const theme = useTheme();
+    const isPaid = payment.status === 'Paid';
 
-  const badgeColors =
-    payment.status === 'Paid'
-      ? { background: '#14532d66', text: '#86EFAC' }
-      : payment.status === 'Overdue'
-        ? { background: '#7f1d1d66', text: '#FCA5A5' }
-        : { background: '#78350f66', text: '#FCD34D' };
+    const badgeColors =
+      payment.status === 'Paid'
+        ? { background: '#14532d66', text: '#86EFAC' }
+        : payment.status === 'Overdue'
+          ? { background: '#7f1d1d66', text: '#FCA5A5' }
+          : { background: '#78350f66', text: '#FCD34D' };
 
-  return (
-    <Surface
-      style={[
-        styles.card,
-        { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
-      ]}
-      elevation={2}
-    >
-      <View style={styles.row}>
-        <View style={styles.details}>
-          <Text variant="titleMedium" style={styles.name}>
-            {tenantDisplayName}
-          </Text>
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            {unit && building ? `${building.name} · ${unit.unitNumber}` : 'Unknown unit'}
-          </Text>
+    return (
+      <Surface
+        style={[
+          styles.card,
+          { backgroundColor: theme.colors.surface, borderColor: theme.colors.outlineVariant },
+        ]}
+        elevation={2}
+      >
+        <View style={styles.row}>
+          <View style={styles.details}>
+            <Text variant="titleMedium" style={styles.name}>
+              {tenantDisplayName}
+            </Text>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              {unit && building ? `${building.name} · ${unit.unitNumber}` : 'Unknown unit'}
+            </Text>
+          </View>
+          <Chip
+            compact
+            style={[styles.badge, { backgroundColor: badgeColors.background }]}
+            textStyle={{ color: badgeColors.text, fontWeight: '700' }}
+          >
+            {payment.status}
+          </Chip>
         </View>
-        <Chip
-          compact
-          style={[styles.badge, { backgroundColor: badgeColors.background }]}
-          textStyle={{ color: badgeColors.text, fontWeight: '700' }}
-        >
-          {payment.status}
-        </Chip>
-      </View>
 
-      <View style={styles.metaRow}>
-        <View>
-          <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Rent Amount
-          </Text>
-          <Text variant="titleMedium">{formatINR(payment.amount)}</Text>
+        <View style={styles.metaRow}>
+          <View>
+            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Rent Amount
+            </Text>
+            <Text variant="titleMedium">{formatINR(payment.amount)}</Text>
+          </View>
+          <View>
+            <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              Due Date
+            </Text>
+            <Text variant="titleMedium">{formatIndianDate(payment.dueDate)}</Text>
+          </View>
         </View>
-        <View>
-          <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Due Date
-          </Text>
-          <Text variant="titleMedium">{formatIndianDate(payment.dueDate)}</Text>
-        </View>
-      </View>
 
-      <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-        {isPaid ? `Paid on ${formatIndianDate(payment.paidDate ?? '-')}` : 'Awaiting rent payment'}
-      </Text>
+        <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+          {isPaid
+            ? `Paid on ${formatIndianDate(payment.paidDate ?? '-')}`
+            : 'Awaiting rent payment'}
+        </Text>
 
-      {!isPaid ? (
-        <Button mode="contained-tonal" icon="check-circle-outline" onPress={() => onMarkAsPaid(payment.id)}>
-          Mark as Paid
-        </Button>
-      ) : null}
-    </Surface>
-  );
-});
+        {!isPaid ? (
+          <Button
+            mode="contained-tonal"
+            icon="check-circle-outline"
+            onPress={() => onMarkAsPaid(payment.id)}
+          >
+            Mark as Paid
+          </Button>
+        ) : null}
+      </Surface>
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   card: {

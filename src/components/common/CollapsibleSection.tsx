@@ -44,11 +44,7 @@ export function CollapsibleSection({
             {title}
           </Text>
         </View>
-        <IconButton
-          icon={expanded ? 'chevron-up' : 'chevron-down'}
-          onPress={toggle}
-          size={22}
-        />
+        <IconButton icon={expanded ? 'chevron-up' : 'chevron-down'} onPress={toggle} size={22} />
       </View>
       {expanded ? <View style={styles.content}>{children}</View> : null}
     </Surface>

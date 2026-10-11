@@ -4,12 +4,13 @@ export interface RentalUnit {
   id: string;
   buildingId: string;
   unitNumber: string;
-  monthlyRent: number;
+  monthlyRent: number; // Default rent offered when assigning a tenant
   status: OccupancyStatus;
   securityDeposit?: number;
   subMeterId?: string;
   prepaidElectricityBalance?: number;
   tenantId?: string;
+  notes?: string;
 }
 
 export interface AddUnitFormValues {

@@ -1,19 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import {
-  Button,
-  Chip,
-  Divider,
-  IconButton,
-  Text,
-  TextInput,
-  useTheme,
-} from 'react-native-paper';
+import { Button, Chip, Divider, IconButton, Text, TextInput, useTheme } from 'react-native-paper';
 import { CollapsibleSection } from '../components/common/CollapsibleSection';
-import { getUnitDetailsExtras } from '../data/mockUnitDetails';
 import { UnitsStackParamList } from '../navigation/UnitsStack';
-import { useBuildingsStore, useElectricityBillsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
+import {
+  useBuildingsStore,
+  useElectricityBillsStore,
+  usePaymentsStore,
+  useTenantsStore,
+  useUnitsStore,
+} from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { formatINR, formatIndianDate } from '../utils';
 
@@ -37,16 +34,19 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   const theme = useTheme();
   const { unitId } = route.params;
   const unit = useUnitsStore((state) => state.units.find((item) => item.id === unitId));
+  const updateUnit = useUnitsStore((state) => state.updateUnit);
   const buildings = useBuildingsStore((state) => state.buildings);
   const tenants = useTenantsStore((state) => state.tenants);
   const payments = usePaymentsStore((state) => state.payments);
   const electricityRecords = useElectricityBillsStore((state) => state.records);
-  const extras = useMemo(() => getUnitDetailsExtras(unitId), [unitId]);
-  const [notes, setNotes] = useState(extras.notes);
-  const [newReading, setNewReading] = useState('');
+  const [notes, setNotes] = useState(unit?.notes ?? '');
+
+  useEffect(() => {
+    setNotes(unit?.notes ?? '');
+  }, [unitId, unit?.notes]);
 
   const tenant = useMemo(
-    () => unit?.tenantId ? tenants.find((item) => item.id === unit.tenantId) : undefined,
+    () => (unit?.tenantId ? tenants.find((item) => item.id === unit.tenantId) : undefined),
     [tenants, unit?.tenantId]
   );
 
@@ -73,14 +73,19 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   const isOccupied = unit.status === 'Occupied';
 
   return (
-    <View style={[sharedStyles.screen, styles.screen, { backgroundColor: theme.colors.background }]}>
+    <View
+      style={[sharedStyles.screen, styles.screen, { backgroundColor: theme.colors.background }]}
+    >
       <View style={styles.topBar}>
         <IconButton icon="arrow-left" onPress={() => navigation.goBack()} />
         <View style={styles.topBarText}>
           <Text variant="headlineSmall" style={styles.heading}>
             {unit.unitNumber}
           </Text>
-          <Text variant="bodyMedium">{buildings.find((building) => building.id === unit.buildingId)?.name ?? 'Unknown building'}</Text>
+          <Text variant="bodyMedium">
+            {buildings.find((building) => building.id === unit.buildingId)?.name ??
+              'Unknown building'}
+          </Text>
           <Chip
             compact
             style={{ backgroundColor: isOccupied ? '#14532d66' : '#78350f66' }}
@@ -129,23 +134,6 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
           )}
         </CollapsibleSection>
 
-        <CollapsibleSection title="Documents" icon="file-document-outline">
-          {extras.documents.map((doc) => (
-            <View key={doc.id} style={styles.historyItem}>
-              <Text variant="bodyMedium">{doc.name}</Text>
-              <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                Uploaded {formatIndianDate(doc.uploadedAt)}
-              </Text>
-            </View>
-          ))}
-          <Button mode="outlined" icon="file-upload-outline" style={styles.actionButton}>
-            Upload Rent Agreement PDF
-          </Button>
-          <Button mode="outlined" icon="camera-outline" style={styles.actionButton}>
-            Upload Aadhaar / PAN Image
-          </Button>
-        </CollapsibleSection>
-
         <CollapsibleSection title="Electricity" icon="flash-outline">
           <DetailRow
             label="Current Prepaid Balance"
@@ -162,64 +150,10 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
                 : 'No reading recorded'
             }
           />
-          <TextInput
-            label="Add New Reading"
-            mode="outlined"
-            keyboardType="numeric"
-            value={newReading}
-            onChangeText={setNewReading}
-            placeholder="Enter current sub-meter reading"
-          />
-          <Button mode="contained-tonal" icon="plus" disabled={!newReading.trim()}>
-            Save Reading
-          </Button>
         </CollapsibleSection>
 
         <CollapsibleSection title="Security Deposit" icon="shield-check-outline">
-          <DetailRow
-            label="Deposit Collected"
-            value={formatINR(extras.securityDeposit.collected || unit.securityDeposit || 0)}
-          />
-          <DetailRow label="Refund Status" value={extras.securityDeposit.refundStatus} />
-          {extras.securityDeposit.refundAmount ? (
-            <DetailRow
-              label="Refund Amount"
-              value={formatINR(extras.securityDeposit.refundAmount)}
-            />
-          ) : null}
-          {extras.securityDeposit.refundDate ? (
-            <DetailRow
-              label="Refund Date"
-              value={formatIndianDate(extras.securityDeposit.refundDate)}
-            />
-          ) : null}
-          {extras.securityDeposit.notes ? (
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              {extras.securityDeposit.notes}
-            </Text>
-          ) : null}
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Maintenance" icon="tools">
-          {extras.maintenanceRecords.length > 0 ? (
-            extras.maintenanceRecords.map((record) => (
-              <View key={record.id} style={styles.historyItem}>
-                <Text variant="bodyMedium" style={styles.detailValue}>
-                  {record.title}
-                </Text>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  {record.description}
-                </Text>
-                <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  Expense: {formatINR(record.expense)} · {formatIndianDate(record.completedAt)}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-              No maintenance records for this unit.
-            </Text>
-          )}
+          <DetailRow label="Deposit Collected" value={formatINR(unit.securityDeposit ?? 0)} />
         </CollapsibleSection>
 
         <CollapsibleSection title="Notes" icon="note-text-outline">
@@ -231,7 +165,7 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
             onChangeText={setNotes}
             placeholder="Add internal notes about this unit or tenant..."
           />
-          <Button mode="contained-tonal" onPress={() => undefined}>
+          <Button mode="contained-tonal" onPress={() => updateUnit(unit.id, { notes })}>
             Save Notes
           </Button>
         </CollapsibleSection>
@@ -277,8 +211,5 @@ const styles = StyleSheet.create({
   historyItem: {
     gap: 2,
     marginBottom: spacing.xs,
-  },
-  actionButton: {
-    marginTop: spacing.xxs,
   },
 });

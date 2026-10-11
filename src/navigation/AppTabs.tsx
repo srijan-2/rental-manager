@@ -32,14 +32,16 @@ export function AppTabs() {
           borderTopColor: theme.colors.outlineVariant,
         },
         tabBarIcon: ({ color, size }) => {
-          const iconMap: Record<keyof RootTabParamList, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
-            {
-              Dashboard: 'view-dashboard-outline',
-              Units: 'office-building-outline',
-              Tenants: 'account-group-outline',
-              Payments: 'cash-multiple',
-              ElectricityBalance: 'flash-outline',
-            };
+          const iconMap: Record<
+            keyof RootTabParamList,
+            React.ComponentProps<typeof MaterialCommunityIcons>['name']
+          > = {
+            Dashboard: 'view-dashboard-outline',
+            Units: 'office-building-outline',
+            Tenants: 'account-group-outline',
+            Payments: 'cash-multiple',
+            ElectricityBalance: 'flash-outline',
+          };
 
           return <MaterialCommunityIcons name={iconMap[route.name]} size={size} color={color} />;
         },

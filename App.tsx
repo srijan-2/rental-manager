@@ -1,5 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, DefaultTheme as NavigationDefaultTheme } from '@react-navigation/native';
+import {
+  NavigationContainer,
+  DefaultTheme as NavigationDefaultTheme,
+} from '@react-navigation/native';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppTabs } from './src/navigation/AppTabs';

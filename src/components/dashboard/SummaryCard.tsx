@@ -42,7 +42,10 @@ export const SummaryCard = memo(
           {value}
         </Text>
 
-        <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>
+        <Text
+          variant="bodyMedium"
+          style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}
+        >
           {subtitle}
         </Text>
       </Surface>

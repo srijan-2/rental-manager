@@ -9,7 +9,3 @@ export function calculateMonthlyElectricityCharge(unitsConsumed: number, ratePer
 export function calculateRemainingPrepaidBalance(currentBalance: number, monthlyCharge: number) {
   return currentBalance - monthlyCharge;
 }
-
-export function hasLowElectricityBalance(remainingBalance: number, threshold = 500) {
-  return remainingBalance <= threshold;
-}

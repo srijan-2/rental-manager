@@ -3,7 +3,7 @@ export interface Tenant {
   name: string;
   phone: string;
   unitId: string;
-  monthlyRent: number;
+  monthlyRent: number; // Source of truth for an occupied unit's rent
   moveInDate: string;
 }
 
