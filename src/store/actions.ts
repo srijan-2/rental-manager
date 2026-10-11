@@ -1,6 +1,9 @@
 import { Tenant } from '../types/tenant';
 import { useTenantsStore } from './tenantsStore';
 import { useUnitsStore } from './unitsStore';
+import { usePaymentsStore } from './paymentsStore';
+import { ensureBillSchedule } from './paymentSchedule';
+import { todayISO } from '../utils/date';
 type TenantData = Omit<Tenant, 'id'>;
 function ensureAvailable(unitId: string, tenantId?: string) {
   const unit = useUnitsStore.getState().units.find((item) => item.id === unitId);
@@ -19,6 +22,7 @@ export function assignTenant(data: TenantData): Tenant {
     prepaidElectricityBalance: data.electricityAdvance,
     lastMeterReading: data.openingMeterReading,
   });
+  ensureBillSchedule();
   return tenant;
 }
 export function updateTenant(id: string, data: TenantData): Tenant {
@@ -37,11 +41,18 @@ export function updateTenant(id: string, data: TenantData): Tenant {
     billingStartDate: current.billingStartDate,
   };
   useTenantsStore.getState().updateTenant(id, tenant);
+  usePaymentsStore.getState().updateRentAmounts(id, todayISO(), data.monthlyRent);
+  ensureBillSchedule();
   return tenant;
 }
 export function removeTenant(id: string) {
   const tenant = useTenantsStore.getState().tenants.find((t) => t.id === id);
   if (!tenant) return;
   useUnitsStore.getState().updateUnit(tenant.unitId, { status: 'Vacant', tenantId: undefined });
+  usePaymentsStore
+    .getState()
+    .deletePaymentsWhere(
+      (payment) => !payment.rentPaidDate && !payment.electricity && payment.tenantId === id
+    );
   useTenantsStore.getState().deleteTenant(id);
 }

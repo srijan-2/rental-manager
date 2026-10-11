@@ -13,7 +13,7 @@ import {
   useUnitsStore,
 } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
-import { formatINR, formatIndianDate } from '../utils';
+import { formatINR, formatIndianDate, getBillStatus, todayISO } from '../utils';
 
 type Props = NativeStackScreenProps<UnitsStackParamList, 'UnitDetails'>;
 
@@ -60,7 +60,9 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
     [electricityRecords, unitId]
   );
 
-  const currentPaymentStatus = unitPayments[0]?.status ?? 'Pending';
+  const currentPaymentStatus = unitPayments[0]
+    ? getBillStatus(unitPayments[0], todayISO())
+    : 'In progress';
 
   if (!unit) {
     return (
@@ -124,9 +126,9 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
           {unitPayments.length > 0 ? (
             unitPayments.map((payment) => (
               <View key={payment.id} style={styles.historyItem}>
-                <Text variant="bodyMedium">{formatINR(payment.amount)}</Text>
+                <Text variant="bodyMedium">{formatINR(payment.rentAmount)}</Text>
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-                  {payment.status} · {formatIndianDate(payment.dueDate)}
+                  {getBillStatus(payment, todayISO())} · {formatIndianDate(payment.dueDate)}
                 </Text>
               </View>
             ))

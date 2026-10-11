@@ -1,12 +1,27 @@
-export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue';
+export type PaymentMethod = 'Cash' | 'Bank Transfer' | 'UPI' | 'Card';
+export type BillStatus = 'Paid' | 'In progress' | 'Calculation pending' | 'Overdue' | 'Due';
 
 export interface Payment {
   id: string;
   tenantId: string;
+  tenantName: string;
   unitId: string;
-  amount: number;
+  cycleStart: string;
+  cycleEnd: string;
   dueDate: string;
-  paidDate?: string;
-  status: PaymentStatus;
-  method: 'Bank Transfer' | 'Card' | 'Cash';
+  periodLabel: string;
+  rentAmount: number;
+  rentPaidDate?: string;
+  rentMethod?: PaymentMethod;
+  electricity?: {
+    previousReading: number;
+    currentReading: number;
+    unitsConsumed: number;
+    ratePerUnit: number;
+    amount: number;
+    recordedAt: string;
+  };
+  electricityPaidDate?: string;
+  electricityMethod?: PaymentMethod;
+  createdAt: string;
 }
