@@ -8,7 +8,7 @@ import {
   Modal as RNModal,
 } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Button, Surface, Text, TextInput, useTheme } from 'react-native-paper';
+import { Button, HelperText, Surface, Text, TextInput, useTheme } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useBuildingsStore, useElectricityBillsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
@@ -33,6 +33,12 @@ interface AutoFilledContext {
 
 function toNumber(value: string) {
   return Number(value.replace(/[^\d.]/g, '')) || 0;
+}
+
+function isValidNonNegativeNumber(value: string) {
+  const trimmed = value.trim();
+  const number = Number(trimmed);
+  return trimmed !== '' && Number.isFinite(number) && number >= 0;
 }
 
 function formatMonthLabel(value: Date) {
@@ -211,9 +217,11 @@ export function ElectricityBillsScreen() {
   const {
     control,
     handleSubmit,
+    getValues,
     watch,
     reset,
     setValue,
+    trigger,
     formState: { errors },
   } = useForm<ElectricityRecordFormValues>({
     defaultValues: createDefaultFormValues(),
@@ -239,24 +247,32 @@ export function ElectricityBillsScreen() {
     }
 
     const lastRecord = getLastRecordForUnit(records, selectedUnitId);
+    const previousMeterReading = selectedUnit?.lastMeterReading ?? lastRecord?.currentMeterReading;
 
-    if (lastRecord) {
+    if (previousMeterReading !== undefined) {
       const ctx: AutoFilledContext = {
-        previousMeterReading: lastRecord.currentMeterReading,
-        ratePerUnit: lastRecord.ratePerUnit,
-        sourceMonth: lastRecord.monthLabel,
+        previousMeterReading,
+        ratePerUnit: lastRecord?.ratePerUnit ?? 0,
+        sourceMonth:
+          selectedUnit?.lastMeterReading !== undefined
+            ? 'Unit record'
+            : (lastRecord?.monthLabel ?? 'Previous record'),
       };
       setAutoFilledCtx(ctx);
 
       // Auto-fill previous reading and lock it
-      setValue('previousMeterReading', String(lastRecord.currentMeterReading), {
+      setValue('previousMeterReading', String(previousMeterReading), {
         shouldValidate: false,
       });
       setPrevReadingLocked(true);
 
       // Carry forward rate (less critical, but still a time saver)
-      setValue('ratePerUnit', String(lastRecord.ratePerUnit), { shouldValidate: false });
-      setRateCarriedOver(true);
+      if (lastRecord) {
+        setValue('ratePerUnit', String(lastRecord.ratePerUnit), { shouldValidate: false });
+        setRateCarriedOver(true);
+      } else {
+        setRateCarriedOver(false);
+      }
     } else {
       // First-time entry for this unit — no history, clear any leftover
       setAutoFilledCtx(null);
@@ -269,11 +285,12 @@ export function ElectricityBillsScreen() {
     // Always clear current reading when switching units
     setValue('currentMeterReading', '', { shouldValidate: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedUnitId]);
+  }, [selectedUnit, selectedUnitId]);
 
   const handleUnlockPrevReading = useCallback(() => {
     setPrevReadingLocked(false);
-  }, []);
+    void trigger('currentMeterReading');
+  }, [trigger]);
 
   // ── Derived calculations ─────────────────────────────────────────────────
   const previousReading = toNumber(previousReadingValue);
@@ -290,6 +307,13 @@ export function ElectricityBillsScreen() {
   const hasBalancePreview = Boolean(
     selectedUnit && previousReadingValue && currentReadingValue && ratePerUnitValue
   );
+
+  const canShowPreview =
+    isValidNonNegativeNumber(previousReadingValue) &&
+    isValidNonNegativeNumber(currentReadingValue) &&
+    isValidNonNegativeNumber(ratePerUnitValue) &&
+    Number(ratePerUnitValue) > 0 &&
+    currentReading >= previousReading;
 
   const balanceSeverity = getBalanceSeverity(remainingPrepaidBalance, hasBalancePreview);
 
@@ -325,11 +349,13 @@ export function ElectricityBillsScreen() {
 
   // ── Submit ────────────────────────────────────────────────────────────────
   const onSubmit = (values: ElectricityRecordFormValues) => {
+    const previous = toNumber(values.previousMeterReading);
+    const current = toNumber(values.currentMeterReading);
+    if (current < previous) return;
+
     const selected: RentalUnit | undefined = units.find((u) => u.id === values.unitId);
     if (!selected) return;
 
-    const previous = toNumber(values.previousMeterReading);
-    const current = toNumber(values.currentMeterReading);
     const rate = toNumber(values.ratePerUnit);
     const consumed = calculateUnitsConsumed(previous, current);
     const monthlyElectricityCharge = calculateMonthlyElectricityCharge(consumed, rate);
@@ -351,7 +377,10 @@ export function ElectricityBillsScreen() {
       lowBalanceWarning: remainingBalance < 500,
       createdAt: new Date().toISOString().split('T')[0],
     });
-    updateUnit(selected.id, { prepaidElectricityBalance: remainingBalance });
+    updateUnit(selected.id, {
+      prepaidElectricityBalance: remainingBalance,
+      lastMeterReading: current,
+    });
 
     // Reset form but keep unitId and month so the next unit can be entered quickly
     const nextMonth = values.monthLabel;
@@ -534,20 +563,37 @@ export function ElectricityBillsScreen() {
             <Controller
               control={control}
               name="currentMeterReading"
-              rules={{ required: true }}
+              rules={{
+                required: 'Current reading is required',
+                validate: (value) => {
+                  if (!isValidNonNegativeNumber(value)) return 'Enter a valid number';
+                  return (
+                    toNumber(value) >= toNumber(getValues('previousMeterReading')) ||
+                    'Current reading cannot be less than previous reading'
+                  );
+                },
+              }}
               render={({ field: { onChange, value } }) => (
-                <TextInput
-                  label="Current Reading"
-                  mode="outlined"
-                  keyboardType="numeric"
-                  value={value}
-                  onChangeText={onChange}
-                  error={Boolean(errors.currentMeterReading)}
-                  style={styles.input}
-                  contentStyle={styles.inputContent}
-                  autoFocus
-                  dense
-                />
+                <>
+                  <TextInput
+                    label="Current Reading"
+                    mode="outlined"
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={(value) => {
+                      onChange(value);
+                      void trigger('currentMeterReading');
+                    }}
+                    error={Boolean(errors.currentMeterReading)}
+                    style={styles.input}
+                    contentStyle={styles.inputContent}
+                    autoFocus
+                    dense
+                  />
+                  <HelperText type="error" visible={Boolean(errors.currentMeterReading)}>
+                    {errors.currentMeterReading?.message}
+                  </HelperText>
+                </>
               )}
             />
           </View>
@@ -557,43 +603,71 @@ export function ElectricityBillsScreen() {
             <Controller
               control={control}
               name="previousMeterReading"
-              rules={{ required: true }}
+              rules={{
+                required: 'Previous reading is required',
+                validate: (value) => isValidNonNegativeNumber(value) || 'Enter a valid number',
+              }}
               render={({ field: { onChange, value } }) => (
-                <TextInput
-                  label="Prev Reading"
-                  mode="outlined"
-                  keyboardType="numeric"
-                  value={value}
-                  onChangeText={onChange}
-                  error={Boolean(errors.previousMeterReading)}
-                  style={[styles.input, styles.inputHalf]}
-                  contentStyle={styles.inputContent}
-                  dense
-                  right={
-                    /* Show a subtle "edited" indicator if the user overrode an auto-fill */
-                    autoFilledCtx && !prevReadingLocked ? (
-                      <TextInput.Icon icon="pencil" color="#FBBF24" size={14} />
-                    ) : undefined
-                  }
-                />
+                <View style={styles.inputColumn}>
+                  <TextInput
+                    label="Prev Reading"
+                    mode="outlined"
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={(nextValue) => {
+                      onChange(nextValue);
+                      void trigger('currentMeterReading');
+                    }}
+                    error={Boolean(errors.previousMeterReading)}
+                    style={styles.input}
+                    contentStyle={styles.inputContent}
+                    dense
+                    right={
+                      /* Show a subtle "edited" indicator if the user overrode an auto-fill */
+                      autoFilledCtx && !prevReadingLocked ? (
+                        <TextInput.Icon icon="pencil" color="#FBBF24" size={14} />
+                      ) : undefined
+                    }
+                  />
+                  <HelperText type="error" visible={Boolean(errors.previousMeterReading)}>
+                    {errors.previousMeterReading?.message}
+                  </HelperText>
+                </View>
               )}
             />
             <Controller
               control={control}
               name="currentMeterReading"
-              rules={{ required: true }}
+              rules={{
+                required: 'Current reading is required',
+                validate: (value) => {
+                  if (!isValidNonNegativeNumber(value)) return 'Enter a valid number';
+                  return (
+                    toNumber(value) >= toNumber(getValues('previousMeterReading')) ||
+                    'Current reading cannot be less than previous reading'
+                  );
+                },
+              }}
               render={({ field: { onChange, value } }) => (
-                <TextInput
-                  label="Curr Reading"
-                  mode="outlined"
-                  keyboardType="numeric"
-                  value={value}
-                  onChangeText={onChange}
-                  error={Boolean(errors.currentMeterReading)}
-                  style={[styles.input, styles.inputHalf]}
-                  contentStyle={styles.inputContent}
-                  dense
-                />
+                <View style={styles.inputColumn}>
+                  <TextInput
+                    label="Curr Reading"
+                    mode="outlined"
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={(nextValue) => {
+                      onChange(nextValue);
+                      void trigger('currentMeterReading');
+                    }}
+                    error={Boolean(errors.currentMeterReading)}
+                    style={styles.input}
+                    contentStyle={styles.inputContent}
+                    dense
+                  />
+                  <HelperText type="error" visible={Boolean(errors.currentMeterReading)}>
+                    {errors.currentMeterReading?.message}
+                  </HelperText>
+                </View>
               )}
             />
           </View>
@@ -603,64 +677,76 @@ export function ElectricityBillsScreen() {
         <Controller
           control={control}
           name="ratePerUnit"
-          rules={{ required: true }}
+          rules={{
+            required: 'Rate per unit is required',
+            validate: (value) =>
+              (isValidNonNegativeNumber(value) && Number(value) > 0) ||
+              'Rate must be greater than 0',
+          }}
           render={({ field: { onChange, value } }) => (
-            <TextInput
-              label={rateCarriedOver ? 'Rate per Unit  (carried over)' : 'Rate per Unit'}
-              mode="outlined"
-              keyboardType="decimal-pad"
-              value={value}
-              onChangeText={(v) => {
-                onChange(v);
-                setRateCarriedOver(false);
-              }}
-              error={Boolean(errors.ratePerUnit)}
-              left={<TextInput.Affix text="₹" />}
-              right={
-                rateCarriedOver ? (
-                  <TextInput.Icon icon="content-copy" color="#64748B" size={14} />
-                ) : undefined
-              }
-              style={styles.input}
-              contentStyle={styles.inputContent}
-              dense
-            />
+            <>
+              <TextInput
+                label={rateCarriedOver ? 'Rate per Unit  (carried over)' : 'Rate per Unit'}
+                mode="outlined"
+                keyboardType="decimal-pad"
+                value={value}
+                onChangeText={(v) => {
+                  onChange(v);
+                  setRateCarriedOver(false);
+                }}
+                error={Boolean(errors.ratePerUnit)}
+                left={<TextInput.Affix text="₹" />}
+                right={
+                  rateCarriedOver ? (
+                    <TextInput.Icon icon="content-copy" color="#64748B" size={14} />
+                  ) : undefined
+                }
+                style={styles.input}
+                contentStyle={styles.inputContent}
+                dense
+              />
+              <HelperText type="error" visible={Boolean(errors.ratePerUnit)}>
+                {errors.ratePerUnit?.message}
+              </HelperText>
+            </>
           )}
         />
 
         {/* Live summary */}
-        <View style={styles.summary}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Units consumed</Text>
-            <Text style={styles.summaryNumber}>{unitsConsumed}</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Monthly charge</Text>
-            <Text style={styles.summaryCharge}>
-              {formatINR(monthlyCharge, { minimumFractionDigits: 0 })}
-            </Text>
-          </View>
-          {hasBalancePreview ? (
+        {canShowPreview ? (
+          <View style={styles.summary}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Remaining balance</Text>
-              <Text style={[styles.summaryBalance, { color: balanceStatusColor }]}>
-                {formatINR(remainingPrepaidBalance)}
+              <Text style={styles.summaryLabel}>Units consumed</Text>
+              <Text style={styles.summaryNumber}>{unitsConsumed}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Monthly charge</Text>
+              <Text style={styles.summaryCharge}>
+                {formatINR(monthlyCharge, { minimumFractionDigits: 0 })}
               </Text>
             </View>
-          ) : null}
+            {hasBalancePreview ? (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Remaining balance</Text>
+                <Text style={[styles.summaryBalance, { color: balanceStatusColor }]}>
+                  {formatINR(remainingPrepaidBalance)}
+                </Text>
+              </View>
+            ) : null}
 
-          {/* Warning strip — only shown when balance is low */}
-          {balanceSeverity === 'critical' ? (
-            <View style={[styles.warnStrip, styles.warnCritical]}>
-              <Text style={styles.warnText}>⚠ Critical — top up before next cycle</Text>
-            </View>
-          ) : balanceSeverity === 'warning' ? (
-            <View style={[styles.warnStrip, styles.warnLow]}>
-              <Text style={styles.warnText}>⚠ Balance below ₹500</Text>
-            </View>
-          ) : null}
-        </View>
+            {/* Warning strip — only shown when balance is low */}
+            {balanceSeverity === 'critical' ? (
+              <View style={[styles.warnStrip, styles.warnCritical]}>
+                <Text style={styles.warnText}>⚠ Critical — top up before next cycle</Text>
+              </View>
+            ) : balanceSeverity === 'warning' ? (
+              <View style={[styles.warnStrip, styles.warnLow]}>
+                <Text style={styles.warnText}>⚠ Balance below ₹500</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         <Button
           mode="contained"
@@ -687,7 +773,8 @@ export function ElectricityBillsScreen() {
       <FlatList
         data={records}
         keyExtractor={(item) => item.id}
-        ListHeaderComponent={renderListHeader}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={renderListHeader()}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         renderItem={renderHistoryCard}
@@ -793,8 +880,8 @@ const styles = StyleSheet.create({
 
   // Inputs
   twoCol: { flexDirection: 'row', gap: 10 },
+  inputColumn: { flex: 1 },
   input: { flex: 1 },
-  inputHalf: { flex: 1 },
   inputContent: { fontSize: 14, fontWeight: '600' },
 
   // Locked previous-reading field

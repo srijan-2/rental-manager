@@ -19,9 +19,28 @@ export const useTenantsStore = create<State>()(
     }),
     {
       name: 'rm-tenants',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => AsyncStorage),
-      migrate: (state, version) => (version < 2 ? { tenants: [] } : state),
+      migrate: (state, version) => {
+        if (version >= 3) return state;
+        const persisted = state as Record<string, unknown> & {
+          tenants?: Array<
+            Omit<Tenant, 'electricityAdvance' | 'openingMeterReading' | 'billingStartDate'> &
+              Partial<
+                Pick<Tenant, 'electricityAdvance' | 'openingMeterReading' | 'billingStartDate'>
+              >
+          >;
+        };
+        return {
+          ...persisted,
+          tenants: (persisted.tenants ?? []).map((tenant) => ({
+            ...tenant,
+            electricityAdvance: tenant.electricityAdvance ?? 0,
+            openingMeterReading: tenant.openingMeterReading ?? 0,
+            billingStartDate: tenant.billingStartDate ?? tenant.moveInDate,
+          })),
+        };
+      },
     }
   )
 );

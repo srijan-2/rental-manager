@@ -93,6 +93,7 @@ export function PaymentsScreen() {
       <FlatList
         data={sortedPayments}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <PaymentCard
             payment={item}

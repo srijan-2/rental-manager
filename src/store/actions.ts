@@ -13,7 +13,12 @@ export function assignTenant(data: TenantData): Tenant {
   const unit = ensureAvailable(data.unitId);
   const tenant = { ...data, id: `tenant-${Date.now()}` };
   useTenantsStore.getState().addTenant(tenant);
-  useUnitsStore.getState().updateUnit(unit.id, { status: 'Occupied', tenantId: tenant.id });
+  useUnitsStore.getState().updateUnit(unit.id, {
+    status: 'Occupied',
+    tenantId: tenant.id,
+    prepaidElectricityBalance: data.electricityAdvance,
+    lastMeterReading: data.openingMeterReading,
+  });
   return tenant;
 }
 export function updateTenant(id: string, data: TenantData): Tenant {
@@ -24,7 +29,13 @@ export function updateTenant(id: string, data: TenantData): Tenant {
     useUnitsStore.getState().updateUnit(current.unitId, { status: 'Vacant', tenantId: undefined });
     useUnitsStore.getState().updateUnit(data.unitId, { status: 'Occupied', tenantId: id });
   }
-  const tenant = { ...data, id };
+  const tenant = {
+    ...data,
+    id,
+    electricityAdvance: current.electricityAdvance,
+    openingMeterReading: current.openingMeterReading,
+    billingStartDate: current.billingStartDate,
+  };
   useTenantsStore.getState().updateTenant(id, tenant);
   return tenant;
 }

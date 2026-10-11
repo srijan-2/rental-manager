@@ -1,5 +1,12 @@
 export type OccupancyStatus = 'Occupied' | 'Vacant';
 
+export interface UnitNote {
+  id: string;
+  text: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface RentalUnit {
   id: string;
   buildingId: string;
@@ -9,8 +16,9 @@ export interface RentalUnit {
   securityDeposit?: number;
   subMeterId?: string;
   prepaidElectricityBalance?: number;
+  lastMeterReading?: number;
   tenantId?: string;
-  notes?: string;
+  notes?: UnitNote[];
 }
 
 export interface AddUnitFormValues {

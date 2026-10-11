@@ -25,6 +25,9 @@ const DEFAULT: TenantFormValues = {
   unitId: '',
   monthlyRent: '',
   moveInDate: '',
+  electricityAdvance: '',
+  openingMeterReading: '',
+  billingStartDate: '',
 };
 export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTenant }: Props) {
   const theme = useTheme();
@@ -32,6 +35,8 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
   const buildings = useBuildingsStore((s) => s.buildings);
   const [unitOpen, setUnitOpen] = useState(false);
   const [showDate, setShowDate] = useState(false);
+  const [showBillingDate, setShowBillingDate] = useState(false);
+  const [billingDateTouched, setBillingDateTouched] = useState(false);
   const [error, setError] = useState('');
   const {
     control,
@@ -45,9 +50,11 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
     () => units.filter((u) => !u.tenantId || u.id === selectedTenant?.unitId),
     [units, selectedTenant]
   );
-  const selectedUnit = units.find((u) => u.id === watch('unitId'));
+  const selectedUnitId = watch('unitId');
+  const selectedUnit = units.find((u) => u.id === selectedUnitId);
   useEffect(() => {
-    if (visible)
+    if (visible) {
+      setBillingDateTouched(false);
       reset(
         selectedTenant
           ? {
@@ -56,10 +63,22 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
               unitId: selectedTenant.unitId,
               monthlyRent: selectedTenant.monthlyRent.toLocaleString('en-IN'),
               moveInDate: selectedTenant.moveInDate,
+              electricityAdvance: selectedTenant.electricityAdvance.toLocaleString('en-IN'),
+              openingMeterReading: String(selectedTenant.openingMeterReading),
+              billingStartDate: selectedTenant.billingStartDate,
             }
           : DEFAULT
       );
+    }
   }, [visible, selectedTenant, reset]);
+  useEffect(() => {
+    if (visible && !selectedTenant && selectedUnitId) {
+      setValue(
+        'openingMeterReading',
+        selectedUnit?.lastMeterReading === undefined ? '' : String(selectedUnit.lastMeterReading)
+      );
+    }
+  }, [selectedUnit?.lastMeterReading, selectedTenant, selectedUnitId, setValue, visible]);
   const submit = (v: TenantFormValues) => {
     try {
       onSubmitTenant(v);
@@ -70,7 +89,20 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
   };
   const dateChange = (e: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') setShowDate(false);
-    if (e.type === 'set' && date) setValue('moveInDate', toISODate(date), { shouldValidate: true });
+    if (e.type === 'set' && date) {
+      const isoDate = toISODate(date);
+      setValue('moveInDate', isoDate, { shouldValidate: true });
+      if (!selectedTenant && !billingDateTouched) {
+        setValue('billingStartDate', isoDate, { shouldValidate: true });
+      }
+    }
+  };
+  const billingDateChange = (e: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowBillingDate(false);
+    if (e.type === 'set' && date && !selectedTenant) {
+      setBillingDateTouched(true);
+      setValue('billingStartDate', toISODate(date), { shouldValidate: true });
+    }
   };
   const noUnits = available.length === 0;
   return (
@@ -201,6 +233,105 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
         <HelperText type="error" visible={Boolean(errors.moveInDate)}>
           {errors.moveInDate?.message}
         </HelperText>
+        <Text variant="titleMedium" style={styles.sectionTitle}>
+          Electricity at move-in
+        </Text>
+        <Controller
+          control={control}
+          name="electricityAdvance"
+          rules={{
+            required: 'Electricity advance is required',
+            validate: (value) =>
+              (value.trim() !== '' && parseCurrencyInput(value) >= 0) ||
+              'Enter a valid non-negative amount',
+          }}
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              label="Electricity advance"
+              mode="outlined"
+              keyboardType="numeric"
+              value={value}
+              editable={!selectedTenant}
+              onChangeText={(nextValue) => onChange(formatINRInput(nextValue))}
+              left={<TextInput.Affix text="₹" />}
+              error={Boolean(errors.electricityAdvance)}
+            />
+          )}
+        />
+        <HelperText type="error" visible={Boolean(errors.electricityAdvance)}>
+          {errors.electricityAdvance?.message}
+        </HelperText>
+        <Controller
+          control={control}
+          name="openingMeterReading"
+          rules={{
+            required: 'Opening meter reading is required',
+            validate: (value) =>
+              (value.trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0) ||
+              'Enter a valid non-negative number',
+          }}
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              label="Opening meter reading"
+              mode="outlined"
+              keyboardType="numeric"
+              value={value}
+              editable={!selectedTenant}
+              onChangeText={onChange}
+              error={Boolean(errors.openingMeterReading)}
+            />
+          )}
+        />
+        <HelperText type="error" visible={Boolean(errors.openingMeterReading)}>
+          {errors.openingMeterReading?.message}
+        </HelperText>
+        <Controller
+          control={control}
+          name="billingStartDate"
+          rules={{ required: 'Billing start date is required' }}
+          render={({ field: { value } }) => (
+            <View style={styles.dateField}>
+              <Pressable
+                disabled={Boolean(selectedTenant)}
+                onPress={() => setShowBillingDate(true)}
+              >
+                <TextInput
+                  label="Billing Start Date"
+                  mode="outlined"
+                  value={value}
+                  editable={false}
+                  pointerEvents="none"
+                  right={
+                    <TextInput.Icon
+                      icon="calendar"
+                      disabled={Boolean(selectedTenant)}
+                      onPress={() => setShowBillingDate(true)}
+                    />
+                  }
+                  error={Boolean(errors.billingStartDate)}
+                />
+              </Pressable>
+              <Button
+                mode="outlined"
+                disabled={Boolean(selectedTenant)}
+                onPress={() => setShowBillingDate(true)}
+              >
+                Select Date
+              </Button>
+              {showBillingDate ? (
+                <DateTimePicker
+                  value={value ? parseISODate(value) : new Date()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                  onChange={billingDateChange}
+                />
+              ) : null}
+            </View>
+          )}
+        />
+        <HelperText type="error" visible={Boolean(errors.billingStartDate)}>
+          {errors.billingStartDate?.message}
+        </HelperText>
         <HelperText type="error" visible={Boolean(error)}>
           {error}
         </HelperText>
@@ -252,6 +383,7 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
 const styles = StyleSheet.create({
   modal: { borderRadius: radius.md, margin: spacing.md, padding: spacing.md, gap: 2 },
   title: { fontWeight: '700', marginBottom: spacing.sm },
+  sectionTitle: { fontWeight: '700', marginTop: spacing.sm },
   dateField: { gap: spacing.xs },
   selector: {
     minHeight: 52,

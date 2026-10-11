@@ -51,6 +51,7 @@ export function UnitsScreen({ navigation }: Props) {
       <FlatList
         data={shown}
         keyExtractor={(x) => x.id}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <UnitCard
             unit={item}
@@ -77,6 +78,7 @@ export function UnitsScreen({ navigation }: Props) {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.chips}
             >
               <Chip selected={!buildingId} onPress={() => setBuildingId('')}>

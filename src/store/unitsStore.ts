@@ -1,12 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { RentalUnit } from '../types/unit';
+import { RentalUnit, UnitNote } from '../types/unit';
 import { useBuildingsStore } from './buildingsStore';
 interface UnitsState {
   units: RentalUnit[];
   addUnit: (unit: RentalUnit) => void;
   updateUnit: (unitId: string, updates: Partial<RentalUnit>) => void;
+  addUnitNote: (unitId: string, text: string) => void;
+  updateUnitNote: (unitId: string, noteId: string, text: string) => void;
+  deleteUnitNote: (unitId: string, noteId: string) => void;
   deleteUnit: (unitId: string) => void;
 }
 export const useUnitsStore = create<UnitsState>()(
@@ -30,13 +33,74 @@ export const useUnitsStore = create<UnitsState>()(
       },
       updateUnit: (id, updates) =>
         set((s) => ({ units: s.units.map((u) => (u.id === id ? { ...u, ...updates } : u)) })),
+      addUnitNote: (unitId, text) => {
+        const trimmedText = text.trim();
+        if (!trimmedText) return;
+        const now = new Date().toISOString();
+        set((s) => ({
+          units: s.units.map((u) =>
+            u.id === unitId
+              ? {
+                  ...u,
+                  notes: [
+                    ...(u.notes ?? []),
+                    { id: `note-${Date.now()}`, text: trimmedText, createdAt: now },
+                  ],
+                }
+              : u
+          ),
+        }));
+      },
+      updateUnitNote: (unitId, noteId, text) => {
+        const trimmedText = text.trim();
+        if (!trimmedText) return;
+        const now = new Date().toISOString();
+        set((s) => ({
+          units: s.units.map((u) =>
+            u.id === unitId
+              ? {
+                  ...u,
+                  notes: (u.notes ?? []).map((note) =>
+                    note.id === noteId ? { ...note, text: trimmedText, updatedAt: now } : note
+                  ),
+                }
+              : u
+          ),
+        }));
+      },
+      deleteUnitNote: (unitId, noteId) =>
+        set((s) => ({
+          units: s.units.map((u) =>
+            u.id === unitId
+              ? { ...u, notes: (u.notes ?? []).filter((note) => note.id !== noteId) }
+              : u
+          ),
+        })),
       deleteUnit: (id) => set((s) => ({ units: s.units.filter((u) => u.id !== id) })),
     }),
     {
       name: 'rm-units',
-      version: 2,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
-      migrate: (state, version) => (version < 2 ? { units: [] } : state),
+      migrate: (state, version) => {
+        if (version >= 4) return state;
+        const persisted = state as Record<string, unknown> & {
+          units?: Array<Omit<RentalUnit, 'notes'> & { notes?: string | UnitNote[] }>;
+        };
+        const units = persisted.units ?? [];
+        const now = new Date().toISOString();
+        return {
+          ...persisted,
+          units: units.map((unit) => {
+            if (typeof unit.notes !== 'string') return unit;
+            const text = unit.notes.trim();
+            return {
+              ...unit,
+              notes: text ? [{ id: `note-${Date.now()}`, text, createdAt: now }] : [],
+            };
+          }),
+        };
+      },
     }
   )
 );

@@ -42,6 +42,9 @@ export function TenantsScreen() {
       unitId: v.unitId,
       monthlyRent: parseCurrencyInput(v.monthlyRent),
       moveInDate: v.moveInDate.trim(),
+      electricityAdvance: parseCurrencyInput(v.electricityAdvance),
+      openingMeterReading: Number(v.openingMeterReading),
+      billingStartDate: v.billingStartDate.trim(),
     };
     if (selected) updateTenant(selected.id, data);
     else assignTenant(data);
@@ -67,6 +70,7 @@ export function TenantsScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(x) => x.id}
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => {
           const u = units.find((x) => x.id === item.unitId);
           return (

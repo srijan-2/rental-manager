@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Button, Chip, Divider, IconButton, Text, TextInput, useTheme } from 'react-native-paper';
+import { Chip, Divider, IconButton, Snackbar, Text, useTheme } from 'react-native-paper';
 import { CollapsibleSection } from '../components/common/CollapsibleSection';
+import { UnitNotes } from '../components/units/UnitNotes';
 import { UnitsStackParamList } from '../navigation/UnitsStack';
 import {
   useBuildingsStore,
@@ -34,16 +35,15 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   const theme = useTheme();
   const { unitId } = route.params;
   const unit = useUnitsStore((state) => state.units.find((item) => item.id === unitId));
-  const updateUnit = useUnitsStore((state) => state.updateUnit);
+  const addUnitNote = useUnitsStore((state) => state.addUnitNote);
+  const updateUnitNote = useUnitsStore((state) => state.updateUnitNote);
+  const deleteUnitNote = useUnitsStore((state) => state.deleteUnitNote);
   const buildings = useBuildingsStore((state) => state.buildings);
   const tenants = useTenantsStore((state) => state.tenants);
   const payments = usePaymentsStore((state) => state.payments);
   const electricityRecords = useElectricityBillsStore((state) => state.records);
-  const [notes, setNotes] = useState(unit?.notes ?? '');
-
-  useEffect(() => {
-    setNotes(unit?.notes ?? '');
-  }, [unitId, unit?.notes]);
+  const [snackbarVisible, setSnackbarVisible] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const tenant = useMemo(
     () => (unit?.tenantId ? tenants.find((item) => item.id === unit.tenantId) : undefined),
@@ -71,7 +71,6 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
   }
 
   const isOccupied = unit.status === 'Occupied';
-
   return (
     <View
       style={[sharedStyles.screen, styles.screen, { backgroundColor: theme.colors.background }]}
@@ -96,7 +95,11 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+      >
         <CollapsibleSection title="Current Tenant" icon="account-outline" defaultExpanded>
           {isOccupied && tenant ? (
             <>
@@ -142,6 +145,16 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
               maximumFractionDigits: 2,
             })}
           />
+          {tenant ? (
+            <>
+              <DetailRow label="Electricity Advance" value={formatINR(tenant.electricityAdvance)} />
+              <DetailRow label="Opening Meter Reading" value={String(tenant.openingMeterReading)} />
+              <DetailRow
+                label="Billing Start Date"
+                value={formatIndianDate(tenant.billingStartDate)}
+              />
+            </>
+          ) : null}
           <DetailRow
             label="Last Meter Reading"
             value={
@@ -157,19 +170,25 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
         </CollapsibleSection>
 
         <CollapsibleSection title="Notes" icon="note-text-outline">
-          <TextInput
-            mode="outlined"
-            multiline
-            numberOfLines={4}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Add internal notes about this unit or tenant..."
+          <UnitNotes
+            notes={unit.notes ?? []}
+            onAdd={(text) => addUnitNote(unit.id, text)}
+            onUpdate={(noteId, text) => updateUnitNote(unit.id, noteId, text)}
+            onDelete={(noteId) => deleteUnitNote(unit.id, noteId)}
+            onMessage={(message) => {
+              setSnackbarMessage(message);
+              setSnackbarVisible(true);
+            }}
           />
-          <Button mode="contained-tonal" onPress={() => updateUnit(unit.id, { notes })}>
-            Save Notes
-          </Button>
         </CollapsibleSection>
       </ScrollView>
+      <Snackbar
+        visible={snackbarVisible}
+        onDismiss={() => setSnackbarVisible(false)}
+        duration={2000}
+      >
+        {snackbarMessage}
+      </Snackbar>
     </View>
   );
 }
