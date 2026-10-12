@@ -3,7 +3,7 @@ import { Alert, FlatList, SectionList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Chip, Searchbar, SegmentedButtons, Surface, Text, useTheme } from 'react-native-paper';
 import { PaymentCard } from '../components/payments/PaymentCard';
-import { PaymentMethodDialog } from '../components/payments/PaymentMethodDialog';
+import { PaymentDialog, RecordedPaymentMethod } from '../components/payments/PaymentDialog';
 import { SettlementCard } from '../components/payments/SettlementCard';
 import { useReadingEntry } from '../hooks/useReadingEntry';
 import { ensureBillSchedule } from '../store/paymentSchedule';
@@ -156,18 +156,43 @@ export function PaymentsScreen() {
     : undefined;
 
   const openCollection = (id: string, action: CollectionAction) => setCollection({ id, action });
-  const confirmCollection = (method: PaymentMethod) => {
+  const confirmCollection = ({ method, date }: { method: RecordedPaymentMethod; date: string }) => {
     if (collection) {
-      if (collection.action === 'rent') markRentPaid(collection.id, method);
-      if (collection.action === 'electricity') markElectricityPaid(collection.id, method);
-      if (collection.action === 'all') markAllPaid(collection.id, method);
+      if (collection.action === 'rent') markRentPaid(collection.id, method, date);
+      if (collection.action === 'electricity') markElectricityPaid(collection.id, method, date);
+      if (collection.action === 'all') markAllPaid(collection.id, method, date);
     }
     if (selectedSettlement) {
-      markSettlementPaid(selectedSettlement.id, method === 'Settlement' ? 'Cash' : method);
+      markSettlementPaid(selectedSettlement.id, method, date);
     }
     setCollection(null);
     setSettlementId(null);
   };
+  const dialogBill = collection ? payments.find((bill) => bill.id === collection.id) : undefined;
+  const dialogAmount = dialogBill
+    ? collection?.action === 'rent'
+      ? dialogBill.rentAmount
+      : collection?.action === 'electricity'
+        ? (dialogBill.electricity?.amount ?? 0)
+        : getBillAmounts(dialogBill).outstanding
+    : undefined;
+  const dialogMethod: RecordedPaymentMethod =
+    selectedSettlement?.method ??
+    recordedMethod(
+      collection?.action === 'rent'
+        ? dialogBill?.rentMethod
+        : collection?.action === 'electricity'
+          ? dialogBill?.electricityMethod
+          : dialogBill?.rentMethod
+    );
+  const dialogDate =
+    selectedSettlement?.paidDate ??
+    (collection?.action === 'rent'
+      ? dialogBill?.rentPaidDate
+      : collection?.action === 'electricity'
+        ? dialogBill?.electricityPaidDate
+        : dialogBill?.rentPaidDate) ??
+    today;
   const confirmUnpaid = (id: string, kind: 'rent' | 'electricity') => {
     Alert.alert('Mark payment unpaid?', 'This will remove its paid date and method.', [
       { text: 'Cancel', style: 'cancel' },
@@ -269,6 +294,7 @@ export function PaymentsScreen() {
               }
               onMarkPaid={setSettlementId}
               onMarkUnpaid={markSettlementUnpaid}
+              onChangePaid={setSettlementId}
             />
           ))}
         </View>
@@ -290,6 +316,7 @@ export function PaymentsScreen() {
               }
               onMarkPaid={setSettlementId}
               onMarkUnpaid={markSettlementUnpaid}
+              onChangePaid={setSettlementId}
             />
           ))}
         </View>
@@ -326,6 +353,8 @@ export function PaymentsScreen() {
             onCollectRent={(id) => openCollection(id, 'rent')}
             onCollectElectricity={(id) => openCollection(id, 'electricity')}
             onCollectAll={(id) => openCollection(id, 'all')}
+            onChangeRentPayment={(id) => openCollection(id, 'rent')}
+            onChangeElectricityPayment={(id) => openCollection(id, 'electricity')}
             onEnterReading={openReading}
             onMarkRentUnpaid={(id) => confirmUnpaid(id, 'rent')}
             onMarkElectricityUnpaid={(id) => confirmUnpaid(id, 'electricity')}
@@ -341,8 +370,16 @@ export function PaymentsScreen() {
         }
       />
       {readingModal}
-      <PaymentMethodDialog
+      <PaymentDialog
         visible={Boolean(collectionBill || selectedSettlement)}
+        title={selectedSettlement ? 'Settlement payment' : 'Record payment'}
+        amountLabel={
+          selectedSettlement
+            ? `Settlement ${formatINR(Math.abs(selectedSettlement.netAmount))}`
+            : `${collection?.action === 'electricity' ? 'Electricity' : collection?.action === 'all' ? 'Rent + electricity' : 'Rent'} ${formatINR(dialogAmount ?? 0)}`
+        }
+        defaultMethod={dialogMethod}
+        defaultDate={dialogDate}
         onDismiss={() => {
           setCollection(null);
           setSettlementId(null);
@@ -351,6 +388,10 @@ export function PaymentsScreen() {
       />
     </View>
   );
+}
+
+function recordedMethod(method?: PaymentMethod): RecordedPaymentMethod {
+  return !method || method === 'Settlement' ? 'Cash' : method;
 }
 
 function SummaryItem({ label, value }: { label: string; value: string }) {

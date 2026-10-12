@@ -43,13 +43,12 @@ export const TenantCard = memo(
           </View>
           <View style={styles.actions}>
             <IconButton icon="pencil-outline" onPress={() => onEdit(tenant)} />
-            {hasActivity ? (
-              <Button mode="contained-tonal" compact onPress={() => onMoveOut(tenant.id)}>
-                Move out
-              </Button>
-            ) : (
+            <Button mode="contained-tonal" compact onPress={() => onMoveOut(tenant.id)}>
+              Move out
+            </Button>
+            {!hasActivity ? (
               <IconButton icon="trash-can-outline" onPress={() => onDelete(tenant.id)} />
-            )}
+            ) : null}
           </View>
         </View>
 
@@ -89,7 +88,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   actions: {
+    alignItems: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
   },
   meta: {
     flexDirection: 'row',

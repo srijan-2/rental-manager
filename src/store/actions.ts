@@ -149,7 +149,7 @@ export interface MoveOutInput {
   deductionNote?: string;
   advanceApplied: number;
   depositApplied: number;
-  settleNow?: { method: Exclude<PaymentMethod, 'Settlement'> };
+  settleNow?: { method: Exclude<PaymentMethod, 'Settlement'>; date: string };
 }
 
 export function moveOutTenant(input: MoveOutInput): Settlement {
@@ -204,6 +204,9 @@ export function moveOutTenant(input: MoveOutInput): Settlement {
   ) {
     throw new Error('Custom rent must be a valid non-negative amount.');
   }
+  if (input.settleNow && input.settleNow.date > todayISO()) {
+    throw new Error('Settlement payment date cannot be in the future.');
+  }
 
   const finalRent =
     input.rentMode === 'full'
@@ -248,7 +251,9 @@ export function moveOutTenant(input: MoveOutInput): Settlement {
     advanceApplied: roundMoney(input.advanceApplied),
     depositApplied: roundMoney(input.depositApplied),
     netAmount: statement.net,
-    paidDate: input.settleNow && statement.net !== 0 ? todayISO() : undefined,
+    finalRentDetail: `${inclusiveDays(finalBill.cycleStart, input.moveOutDate)} of ${inclusiveDays(finalBill.cycleStart, finalBill.cycleEnd)} days`,
+    finalElectricityDetail: `${unitsConsumed} units × ₹${input.finalReading.ratePerUnit}`,
+    paidDate: input.settleNow && statement.net !== 0 ? input.settleNow.date : undefined,
     method: input.settleNow && statement.net !== 0 ? input.settleNow.method : undefined,
     createdAt: new Date().toISOString(),
   };
@@ -296,4 +301,8 @@ function nextDate(isoDate: string) {
   const date = parseISODate(isoDate);
   date.setDate(date.getDate() + 1);
   return toISODate(date);
+}
+
+function inclusiveDays(start: string, end: string) {
+  return Math.round((parseISODate(end).getTime() - parseISODate(start).getTime()) / 86400000) + 1;
 }

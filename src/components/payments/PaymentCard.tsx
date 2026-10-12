@@ -23,6 +23,8 @@ interface PaymentCardProps {
   onCollectRent: (id: string) => void;
   onCollectElectricity: (id: string) => void;
   onCollectAll: (id: string) => void;
+  onChangeRentPayment: (id: string) => void;
+  onChangeElectricityPayment: (id: string) => void;
   onEnterReading: (id: string) => void;
   onMarkRentUnpaid: (id: string) => void;
   onMarkElectricityUnpaid: (id: string) => void;
@@ -39,6 +41,8 @@ export const PaymentCard = memo(
     onCollectRent,
     onCollectElectricity,
     onCollectAll,
+    onChangeRentPayment,
+    onChangeElectricityPayment,
     onEnterReading,
     onMarkRentUnpaid,
     onMarkElectricityUnpaid,
@@ -136,12 +140,22 @@ export const PaymentCard = memo(
               : `Rent paid ${formatIndianDate(bill.rentPaidDate)} · ${bill.rentMethod}`}
           </Text>
         ) : null}
+        {bill.rentPaidDate && bill.rentMethod !== 'Settlement' ? (
+          <Button mode="text" compact onPress={() => onChangeRentPayment(bill.id)}>
+            Change date / method
+          </Button>
+        ) : null}
         {bill.electricityPaidDate ? (
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
             {bill.electricityMethod === 'Settlement'
               ? 'Settled at move-out'
               : `Electricity paid ${formatIndianDate(bill.electricityPaidDate)} · ${bill.electricityMethod}`}
           </Text>
+        ) : null}
+        {bill.electricityPaidDate && bill.electricityMethod !== 'Settlement' ? (
+          <Button mode="text" compact onPress={() => onChangeElectricityPayment(bill.id)}>
+            Change date / method
+          </Button>
         ) : null}
         {status === 'Paid' ? (
           <Text variant="titleMedium">Total collected {formatINR(amounts.totalBilled)}</Text>

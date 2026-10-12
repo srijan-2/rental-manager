@@ -32,8 +32,10 @@ export function getProratedRent({
 }
 
 export interface SettlementStatement {
-  charges: { label: string; amount: number }[];
-  credits: { label: string; amount: number }[];
+  charges: { label: string; detail?: string; amount: number }[];
+  credits: { label: string; detail?: string; amount: number }[];
+  totalCharges: number;
+  totalCredits: number;
   net: number;
 }
 
@@ -45,6 +47,8 @@ export function buildSettlementStatement({
   deductionNote,
   advanceApplied,
   depositApplied,
+  finalRentDetail,
+  finalElectricityDetail,
 }: {
   unpaidBillsAmount: number;
   finalRent: number;
@@ -53,33 +57,52 @@ export function buildSettlementStatement({
   deductionNote?: string;
   advanceApplied: number;
   depositApplied: number;
+  finalRentDetail?: string;
+  finalElectricityDetail?: string;
 }): SettlementStatement {
   const charges = [
     ...(unpaidBillsAmount > 0
       ? [{ label: 'Earlier unpaid bills', amount: roundMoney(unpaidBillsAmount) }]
       : []),
-    { label: 'Final rent', amount: roundMoney(finalRent) },
-    { label: 'Final electricity', amount: roundMoney(finalElectricity) },
+    { label: 'Rent', detail: finalRentDetail, amount: roundMoney(finalRent) },
+    { label: 'Electricity', detail: finalElectricityDetail, amount: roundMoney(finalElectricity) },
     ...(deductionAmount > 0
       ? [
           {
-            label: deductionNote?.trim() || 'Other deductions',
+            label: 'Deductions',
+            detail: deductionNote?.trim(),
             amount: roundMoney(deductionAmount),
           },
         ]
       : []),
   ];
   const credits = [
-    ...(advanceApplied > 0
-      ? [{ label: 'Electricity advance applied', amount: roundMoney(advanceApplied) }]
-      : []),
-    ...(depositApplied > 0
-      ? [{ label: 'Security deposit applied', amount: roundMoney(depositApplied) }]
-      : []),
+    { label: 'Electricity advance', detail: 'held', amount: roundMoney(advanceApplied) },
+    { label: 'Security deposit', detail: 'held', amount: roundMoney(depositApplied) },
   ];
   const totalCharges = charges.reduce((sum, item) => sum + item.amount, 0);
   const totalCredits = credits.reduce((sum, item) => sum + item.amount, 0);
-  return { charges, credits, net: roundMoney(totalCharges - totalCredits) };
+  return {
+    charges,
+    credits,
+    totalCharges,
+    totalCredits,
+    net: roundMoney(totalCharges - totalCredits),
+  };
+}
+
+export function settlementToStatement(settlement: Settlement): SettlementStatement {
+  return buildSettlementStatement({
+    unpaidBillsAmount: settlement.unpaidBillsAmount,
+    finalRent: settlement.finalRent,
+    finalElectricity: settlement.finalElectricity,
+    deductionAmount: settlement.deductionAmount,
+    deductionNote: settlement.deductionNote,
+    advanceApplied: settlement.advanceApplied,
+    depositApplied: settlement.depositApplied,
+    finalRentDetail: settlement.finalRentDetail,
+    finalElectricityDetail: settlement.finalElectricityDetail,
+  });
 }
 
 export function getSettlementSummaryText(net: number) {

@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Button, Chip, Dialog, Portal, Surface, Text, useTheme } from 'react-native-paper';
+import { SettlementTable } from '../settlements/SettlementTable';
 import { Building } from '../../types/building';
 import { Settlement } from '../../types/settlement';
 import { RentalUnit } from '../../types/unit';
-import { formatINR, formatIndianDate, formatUnitLabel } from '../../utils';
+import { formatIndianDate, formatUnitLabel } from '../../utils';
 import {
-  formatSettlementAmount,
   getSettlementStatus,
   getSettlementSummaryText,
+  settlementToStatement,
 } from '../../utils/settlements';
 import { radius, spacing } from '../../styles/layout';
 
@@ -18,9 +19,17 @@ interface Props {
   building?: Building;
   onMarkPaid: (id: string) => void;
   onMarkUnpaid: (id: string) => void;
+  onChangePaid: (id: string) => void;
 }
 
-export function SettlementCard({ settlement, unit, building, onMarkPaid, onMarkUnpaid }: Props) {
+export function SettlementCard({
+  settlement,
+  unit,
+  building,
+  onMarkPaid,
+  onMarkUnpaid,
+  onChangePaid,
+}: Props) {
   const theme = useTheme();
   const [statementVisible, setStatementVisible] = useState(false);
   const status = getSettlementStatus(settlement);
@@ -64,6 +73,11 @@ export function SettlementCard({ settlement, unit, building, onMarkPaid, onMarkU
             Mark unpaid
           </Button>
         )}
+        {status === 'Settled' && settlement.paidDate && settlement.method ? (
+          <Button mode="text" compact onPress={() => onChangePaid(settlement.id)}>
+            Change date / method
+          </Button>
+        ) : null}
       </View>
       <Portal>
         <Dialog
@@ -73,24 +87,7 @@ export function SettlementCard({ settlement, unit, building, onMarkPaid, onMarkU
         >
           <Dialog.Title>Settlement statement</Dialog.Title>
           <Dialog.Content>
-            <Text>
-              Earlier unpaid bills: {formatSettlementAmount(settlement.unpaidBillsAmount)}
-            </Text>
-            <Text>Final rent: {formatSettlementAmount(settlement.finalRent)}</Text>
-            <Text>Final electricity: {formatSettlementAmount(settlement.finalElectricity)}</Text>
-            {settlement.deductionAmount ? (
-              <Text>
-                {settlement.deductionNote || 'Other deductions'}:{' '}
-                {formatSettlementAmount(settlement.deductionAmount)}
-              </Text>
-            ) : null}
-            <Text>
-              Electricity advance applied: {formatSettlementAmount(settlement.advanceApplied)}
-            </Text>
-            <Text>
-              Security deposit applied: {formatSettlementAmount(settlement.depositApplied)}
-            </Text>
-            <Text variant="titleMedium">{getSettlementSummaryText(settlement.netAmount)}</Text>
+            <SettlementTable statement={settlementToStatement(settlement)} />
           </Dialog.Content>
           <Dialog.Actions>
             <Button onPress={() => setStatementVisible(false)}>Close</Button>

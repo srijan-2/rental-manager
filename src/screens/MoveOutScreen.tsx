@@ -8,22 +8,21 @@ import {
   Modal,
   Portal,
   RadioButton,
-  SegmentedButtons,
-  Surface,
   Switch,
   Text,
   TextInput,
   useTheme,
 } from 'react-native-paper';
+import { PaymentDialog, RecordedPaymentMethod } from '../components/payments/PaymentDialog';
 import {
   ReadingFields,
   ReadingFormValues,
   toElectricityEntry,
 } from '../components/payments/ReadingFields';
+import { SettlementTable } from '../components/settlements/SettlementTable';
 import { useReadingEntry } from '../hooks/useReadingEntry';
 import { moveOutTenant } from '../store/actions';
 import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
-import { PaymentMethod } from '../types/payment';
 import {
   formatINR,
   formatINRInput,
@@ -35,7 +34,6 @@ import {
 } from '../utils';
 import {
   buildSettlementStatement,
-  formatSettlementAmount,
   getMoveOutRange,
   getProratedRent,
   getSettlementSummaryText,
@@ -51,7 +49,7 @@ interface Props {
 }
 
 type RentMode = 'prorated' | 'full' | 'custom';
-type SettlementMethod = Exclude<PaymentMethod, 'Settlement'>;
+type SettlementMethod = RecordedPaymentMethod;
 
 export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Props) {
   const theme = useTheme();
@@ -69,7 +67,11 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
   const [advanceApplied, setAdvanceApplied] = useState('0');
   const [depositApplied, setDepositApplied] = useState('0');
   const [settleNow, setSettleNow] = useState(false);
-  const [method, setMethod] = useState<SettlementMethod>('Cash');
+  const [settlePayment, setSettlePayment] = useState<{
+    method: SettlementMethod;
+    date: string;
+  } | null>(null);
+  const [paymentDialogVisible, setPaymentDialogVisible] = useState(false);
   const [error, setError] = useState('');
   const tenant = tenantId ? tenants.find((item) => item.id === tenantId) : undefined;
   const unit = tenant ? units.find((item) => item.id === tenant.unitId) : undefined;
@@ -152,6 +154,8 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
         deductionNote,
         advanceApplied: parseCurrencyInput(advanceApplied),
         depositApplied: parseCurrencyInput(depositApplied),
+        finalRentDetail: `${inclusiveDays(latestBill.cycleStart, moveOutDate)} of ${inclusiveDays(latestBill.cycleStart, latestBill.cycleEnd)} days`,
+        finalElectricityDetail: `${Math.max(0, Number(currentReading) - Number(previousReadingValue))} units × ${formatINR(Number(ratePerUnit))}`,
       }),
     [
       advanceApplied,
@@ -161,6 +165,10 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
       earlierBills,
       finalElectricity,
       finalRent,
+      currentReading,
+      previousReadingValue,
+      ratePerUnit,
+      moveOutDate,
     ]
   );
   const advanceError = tenant && parseCurrencyInput(advanceApplied) > tenant.electricityAdvance;
@@ -194,7 +202,8 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
                 deductionNote,
                 advanceApplied: parseCurrencyInput(advanceApplied),
                 depositApplied: parseCurrencyInput(depositApplied),
-                settleNow: settleNow && statement.net !== 0 ? { method } : undefined,
+                settleNow:
+                  settleNow && statement.net !== 0 && settlePayment ? settlePayment : undefined,
               });
               onCompleted();
             } catch (value) {
@@ -367,24 +376,25 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
             <HelperText type="error">Cannot apply more than the deposit held.</HelperText>
           ) : null}
 
-          <StatementCard statement={statement} />
+          <SettlementTable statement={statement} />
           {statement.net !== 0 ? (
             <View style={styles.settleRow}>
               <Text>Settle now</Text>
-              <Switch value={settleNow} onValueChange={setSettleNow} />
+              <Switch
+                value={settleNow}
+                onValueChange={(value) => {
+                  setSettleNow(value);
+                  if (value) setPaymentDialogVisible(true);
+                }}
+              />
             </View>
           ) : null}
           {settleNow && statement.net !== 0 ? (
-            <SegmentedButtons
-              value={method}
-              onValueChange={(value) => setMethod(value as SettlementMethod)}
-              buttons={[
-                { value: 'Cash', label: 'Cash' },
-                { value: 'Bank Transfer', label: 'Bank' },
-                { value: 'UPI', label: 'UPI' },
-                { value: 'Card', label: 'Card' },
-              ]}
-            />
+            <Button mode="outlined" onPress={() => setPaymentDialogVisible(true)}>
+              {settlePayment
+                ? `${settlePayment.method} · ${formatIndianDate(settlePayment.date)}`
+                : 'Choose payment method and date'}
+            </Button>
           ) : null}
           {error ? (
             <HelperText type="error" visible>
@@ -393,40 +403,32 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
           ) : null}
           <Button
             mode="contained"
-            disabled={blocked || Boolean(advanceError) || Boolean(depositError)}
+            disabled={
+              blocked ||
+              Boolean(advanceError) ||
+              Boolean(depositError) ||
+              (settleNow && !settlePayment)
+            }
             onPress={handleSubmit(complete)}
           >
             Complete move-out
           </Button>
         </ScrollView>
         {readingModal}
+        <PaymentDialog
+          visible={paymentDialogVisible}
+          title="Settle now"
+          amountLabel={getSettlementSummaryText(statement.net)}
+          defaultMethod={settlePayment?.method ?? 'Cash'}
+          defaultDate={settlePayment?.date ?? toISODate(new Date())}
+          onDismiss={() => setPaymentDialogVisible(false)}
+          onConfirm={(payment) => {
+            setSettlePayment(payment);
+            setPaymentDialogVisible(false);
+          }}
+        />
       </Modal>
     </Portal>
-  );
-}
-
-function StatementCard({ statement }: { statement: ReturnType<typeof buildSettlementStatement> }) {
-  const theme = useTheme();
-  return (
-    <Surface style={[styles.statement, { backgroundColor: theme.colors.surface }]} elevation={2}>
-      <Text variant="titleMedium">Settlement statement</Text>
-      {statement.charges.map((item) => (
-        <Text key={`charge-${item.label}`}>
-          Charge · {item.label}: {formatSettlementAmount(item.amount)}
-        </Text>
-      ))}
-      {statement.credits.map((item) => (
-        <Text key={`credit-${item.label}`}>
-          Credit · {item.label}: {formatSettlementAmount(item.amount)}
-        </Text>
-      ))}
-      <Text
-        variant="headlineSmall"
-        style={{ color: statement.net > 0 ? theme.colors.tertiary : theme.colors.primary }}
-      >
-        {getSettlementSummaryText(statement.net)}
-      </Text>
-    </Surface>
   );
 }
 
@@ -438,7 +440,6 @@ const styles = StyleSheet.create({
   modal: { flex: 1, margin: 0 },
   content: { gap: spacing.sm, padding: spacing.md, paddingBottom: spacing.xxl },
   sectionTitle: { marginTop: spacing.md },
-  statement: { borderRadius: 16, gap: spacing.xs, marginTop: spacing.md, padding: spacing.md },
   settleRow: {
     alignItems: 'center',
     flexDirection: 'row',

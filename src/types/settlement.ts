@@ -18,4 +18,6 @@ export interface Settlement {
   paidDate?: string;
   method?: Exclude<PaymentMethod, 'Settlement'>;
   createdAt: string;
+  finalRentDetail?: string;
+  finalElectricityDetail?: string;
 }
