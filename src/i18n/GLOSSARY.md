@@ -54,3 +54,11 @@
 | Settings | सेटिंग |
 | Language | भाषा |
 | Large text | बड़े अक्षर |
+| WhatsApp | व्हाट्सऐप |
+| Message | संदेश |
+| Send | भेजें |
+| Preview | देखें |
+| Sent | भेज दिया |
+| Receipt | रसीद |
+| Reminder | रिमाइंडर |
+| Statement | हिसाब-किताब का ब्योरा |

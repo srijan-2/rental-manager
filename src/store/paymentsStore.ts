@@ -27,6 +27,9 @@ interface State {
   markElectricityPaid: (id: string, method: PaymentMethod, date?: string) => void;
   markElectricityUnpaid: (id: string) => void;
   markAllPaid: (id: string, method: PaymentMethod, date?: string) => void;
+  markBillShared: (id: string, total: number) => void;
+  markReceiptSent: (id: string, components: ('rent' | 'electricity')[]) => void;
+  markReminderSent: (id: string) => void;
 }
 
 export const usePaymentsStore = create<State>()(
@@ -51,14 +54,21 @@ export const usePaymentsStore = create<State>()(
       markRentPaid: (id, method, date = todayISO()) =>
         set((s) => ({
           payments: s.payments.map((payment) =>
-            payment.id === id ? { ...payment, rentPaidDate: date, rentMethod: method } : payment
+            payment.id === id
+              ? { ...payment, rentPaidDate: date, rentMethod: method, rentReceiptSentAt: undefined }
+              : payment
           ),
         })),
       markRentUnpaid: (id) =>
         set((s) => ({
           payments: s.payments.map((payment) =>
             payment.id === id
-              ? { ...payment, rentPaidDate: undefined, rentMethod: undefined }
+              ? {
+                  ...payment,
+                  rentPaidDate: undefined,
+                  rentMethod: undefined,
+                  rentReceiptSentAt: undefined,
+                }
               : payment
           ),
         })),
@@ -89,7 +99,12 @@ export const usePaymentsStore = create<State>()(
         set((s) => ({
           payments: s.payments.map((payment) =>
             payment.id === id
-              ? { ...payment, electricityPaidDate: date, electricityMethod: method }
+              ? {
+                  ...payment,
+                  electricityPaidDate: date,
+                  electricityMethod: method,
+                  electricityReceiptSentAt: undefined,
+                }
               : payment
           ),
         })),
@@ -97,7 +112,12 @@ export const usePaymentsStore = create<State>()(
         set((s) => ({
           payments: s.payments.map((payment) =>
             payment.id === id
-              ? { ...payment, electricityPaidDate: undefined, electricityMethod: undefined }
+              ? {
+                  ...payment,
+                  electricityPaidDate: undefined,
+                  electricityMethod: undefined,
+                  electricityReceiptSentAt: undefined,
+                }
               : payment
           ),
         })),
@@ -111,6 +131,44 @@ export const usePaymentsStore = create<State>()(
                   rentMethod: method,
                   electricityPaidDate: date,
                   electricityMethod: method,
+                  rentReceiptSentAt: undefined,
+                  electricityReceiptSentAt: undefined,
+                }
+              : payment
+          ),
+        })),
+      markBillShared: (id, total) =>
+        set((s) => ({
+          payments: s.payments.map((payment) =>
+            payment.id === id
+              ? { ...payment, sharedAt: new Date().toISOString(), sharedTotal: total }
+              : payment
+          ),
+        })),
+      markReceiptSent: (id, components) =>
+        set((s) => ({
+          payments: s.payments.map((payment) =>
+            payment.id === id
+              ? {
+                  ...payment,
+                  ...(components.includes('rent')
+                    ? { rentReceiptSentAt: new Date().toISOString() }
+                    : {}),
+                  ...(components.includes('electricity')
+                    ? { electricityReceiptSentAt: new Date().toISOString() }
+                    : {}),
+                }
+              : payment
+          ),
+        })),
+      markReminderSent: (id) =>
+        set((s) => ({
+          payments: s.payments.map((payment) =>
+            payment.id === id
+              ? {
+                  ...payment,
+                  lastReminderAt: new Date().toISOString(),
+                  reminderCount: (payment.reminderCount ?? 0) + 1,
                 }
               : payment
           ),

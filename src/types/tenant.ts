@@ -8,6 +8,8 @@ export interface Tenant {
   electricityAdvance: number;
   openingMeterReading: number;
   billingStartDate: string;
+  messageLanguage: 'hi' | 'en';
+  welcomeSentAt?: string;
 }
 
 export interface TenantFormValues {
@@ -19,4 +21,5 @@ export interface TenantFormValues {
   electricityAdvance: string;
   openingMeterReading: string;
   billingStartDate: string;
+  messageLanguage: 'hi' | 'en';
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Button, Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
@@ -27,6 +27,10 @@ import { getReadingContext } from '../utils/readings';
 import { getStatusColors } from '../theme/statusColors';
 import { getStatusLabel, useT } from '../i18n';
 import { useDateFormat } from '../hooks/useDateFormat';
+import { buildReminderInput } from '../messages/buildInputs';
+import { buildReminderMessage } from '../messages/templates';
+import { useWhatsAppShare } from '../whatsapp/useWhatsAppShare';
+import { daysSince } from '../utils/relativeDays';
 
 export function DashboardScreen() {
   const theme = useTheme();
@@ -41,6 +45,8 @@ export function DashboardScreen() {
   const payments = usePaymentsStore((state) => state.payments);
   const settlements = useSettlementsStore((state) => state.settlements);
   const { openReading, readingModal } = useReadingEntry();
+  const { share } = useWhatsAppShare();
+  const markReminderSent = usePaymentsStore((state) => state.markReminderSent);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const stats = useMemo(
     () => getDashboardStats({ buildings, units, tenants, payments, settlements }, today),
@@ -59,6 +65,43 @@ export function DashboardScreen() {
     stats.billsToCollect.length > 0 ||
     stats.endingSoon.length > 0 ||
     stats.summary.refundsPendingCount > 0;
+
+  const remindBill = (billId: string) => {
+    const bill = payments.find((item) => item.id === billId);
+    const tenant = bill ? tenants.find((item) => item.id === bill.tenantId) : undefined;
+    const unit = bill ? unitById.get(bill.unitId) : undefined;
+    const building = unit ? buildingById.get(unit.buildingId) : undefined;
+    if (!bill || !tenant || !unit || !building) return;
+    const open = () => {
+      const input = buildReminderInput(
+        bill,
+        tenant,
+        unit,
+        building,
+        today,
+        getBillStatus(bill, today) === 'Overdue'
+      );
+      share({
+        recipientName: tenant.name,
+        phone: tenant.phone,
+        defaultLanguage: tenant.messageLanguage,
+        buildMessage: (language) => buildReminderMessage(input, language),
+        onSent: () => markReminderSent(bill.id),
+      });
+    };
+    if (bill.lastReminderAt?.slice(0, 10) === today) {
+      Alert.alert(
+        t('whatsapp.alreadyRemindedTitle', { name: tenant.name }),
+        t('whatsapp.alreadyRemindedMessage'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('whatsapp.sendAgain'), onPress: open },
+        ]
+      );
+    } else {
+      open();
+    }
+  };
 
   return (
     <ScrollView
@@ -183,11 +226,12 @@ export function DashboardScreen() {
                 const building = unit ? buildingById.get(unit.buildingId) : undefined;
                 const status = getBillStatus(bill, today);
                 const colors = getStatusColors(status);
+                const reminder = reminderHistory(bill.lastReminderAt, today, t);
                 return (
                   <ActionRow
                     key={bill.id}
                     title={unit ? formatUnitLabel(unit, building) : t('dashboard.unknownUnit')}
-                    subtitle={bill.tenantName}
+                    subtitle={`${bill.tenantName} · ${reminder}`}
                     onPress={() => navigation.navigate('Payments')}
                     trailing={
                       <View style={styles.billTrailing}>
@@ -202,6 +246,11 @@ export function DashboardScreen() {
                           {getStatusLabel(status, t)}
                         </Chip>
                       </View>
+                    }
+                    action={
+                      <Button compact mode="text" onPress={() => remindBill(bill.id)}>
+                        {t('whatsapp.remind')}
+                      </Button>
                     }
                   />
                 );
@@ -352,3 +401,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
 });
+
+function reminderHistory(
+  timestamp: string | undefined,
+  todayIso: string,
+  t: ReturnType<typeof useT>['t']
+) {
+  if (!timestamp) return t('whatsapp.neverReminded');
+  const days = daysSince(timestamp, todayIso);
+  if (days === 0) return t('whatsapp.remindedToday');
+  if (days === 1) return t('whatsapp.remindedYesterday');
+  return t('whatsapp.remindedDaysAgo', { count: days });
+}

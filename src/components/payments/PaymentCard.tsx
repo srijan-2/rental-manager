@@ -4,6 +4,7 @@ import { Button, Chip, Surface, Text, useTheme } from 'react-native-paper';
 import { Building } from '../../types/building';
 import { Payment } from '../../types/payment';
 import { RentalUnit } from '../../types/unit';
+import { Tenant } from '../../types/tenant';
 import { formatINR, formatUnitLabel } from '../../utils';
 import {
   describeOutstanding,
@@ -15,11 +16,13 @@ import { radius, spacing } from '../../styles/layout';
 import { getStatusColors } from '../../theme/statusColors';
 import { getMethodLabel, getStatusLabel, useT } from '../../i18n';
 import { useDateFormat } from '../../hooks/useDateFormat';
+import { daysSince } from '../../utils/relativeDays';
 
 interface PaymentCardProps {
   bill: Payment;
   unit?: RentalUnit;
   building?: Building;
+  tenant?: Tenant;
   todayIso: string;
   canEditReading: boolean;
   onCollectRent: (id: string) => void;
@@ -31,6 +34,9 @@ interface PaymentCardProps {
   onMarkRentUnpaid: (id: string) => void;
   onMarkElectricityUnpaid: (id: string) => void;
   onDeleteBill: (id: string) => void;
+  onSendBill: (id: string) => void;
+  onSendReceipt: (id: string, components: ('rent' | 'electricity')[]) => void;
+  onRemind: (id: string) => void;
 }
 
 export const PaymentCard = memo(
@@ -38,6 +44,7 @@ export const PaymentCard = memo(
     bill,
     unit,
     building,
+    tenant,
     todayIso,
     canEditReading,
     onCollectRent,
@@ -49,6 +56,9 @@ export const PaymentCard = memo(
     onMarkRentUnpaid,
     onMarkElectricityUnpaid,
     onDeleteBill,
+    onSendBill,
+    onSendReceipt,
+    onRemind,
   }: PaymentCardProps) => {
     const theme = useTheme();
     const { t } = useT();
@@ -57,6 +67,21 @@ export const PaymentCard = memo(
     const amounts = getBillAmounts(bill);
     const statusColor = getStatusColors(status);
     const readingWindowOpen = isReadingWindowOpen(bill, todayIso);
+    const receiptComponents = [
+      ...(bill.rentPaidDate && bill.rentMethod !== 'Settlement' && !bill.rentReceiptSentAt
+        ? (['rent'] as const)
+        : []),
+      ...(bill.electricityPaidDate &&
+      bill.electricityMethod !== 'Settlement' &&
+      !bill.electricityReceiptSentAt
+        ? (['electricity'] as const)
+        : []),
+    ];
+    const canRemind =
+      tenant &&
+      bill.electricity &&
+      amounts.outstanding > 0 &&
+      (status === 'Due' || status === 'Overdue');
 
     return (
       <Surface
@@ -164,6 +189,46 @@ export const PaymentCard = memo(
         {status === 'Paid' ? (
           <Text variant="titleMedium">Total collected {formatINR(amounts.totalBilled)}</Text>
         ) : null}
+        {tenant && receiptComponents.length ? (
+          <Button mode="outlined" onPress={() => onSendReceipt(bill.id, receiptComponents)}>
+            {t('whatsapp.sendReceipt')}
+          </Button>
+        ) : null}
+        {canRemind ? (
+          <>
+            <Button mode="text" onPress={() => onRemind(bill.id)}>
+              {t('whatsapp.remind')}
+            </Button>
+            <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+              {reminderHistory(bill.lastReminderAt, todayIso, t)}
+            </Text>
+          </>
+        ) : null}
+        {receiptComponents.length === 0 &&
+        (bill.rentReceiptSentAt || bill.electricityReceiptSentAt) ? (
+          <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
+            {t('whatsapp.receiptSent')}
+          </Text>
+        ) : null}
+        {tenant &&
+        bill.electricity &&
+        status !== 'In progress' &&
+        status !== 'Calculation pending' ? (
+          <>
+            <Button mode="outlined" onPress={() => onSendBill(bill.id)}>
+              {status === 'Paid' ? t('whatsapp.sendAgain') : t('whatsapp.sendBill')}
+            </Button>
+            {bill.sharedAt && bill.sharedTotal === amounts.totalBilled ? (
+              <Text variant="bodySmall" style={{ color: theme.colors.primary }}>
+                {t('whatsapp.sent', { date: formatIndianDate(bill.sharedAt.slice(0, 10)) })}
+              </Text>
+            ) : bill.sharedAt ? (
+              <Text variant="bodySmall" style={{ color: theme.colors.tertiary }}>
+                {t('whatsapp.changedSinceSent')}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
       </Surface>
     );
   }
@@ -183,3 +248,15 @@ const styles = StyleSheet.create({
   statusChip: { borderRadius: radius.sm },
   actions: { gap: spacing.xs },
 });
+
+function reminderHistory(
+  timestamp: string | undefined,
+  todayIso: string,
+  t: ReturnType<typeof useT>['t']
+) {
+  if (!timestamp) return t('whatsapp.neverReminded');
+  const days = daysSince(timestamp, todayIso);
+  if (days === 0) return t('whatsapp.remindedToday');
+  if (days === 1) return t('whatsapp.remindedYesterday');
+  return t('whatsapp.remindedDaysAgo', { count: days });
+}

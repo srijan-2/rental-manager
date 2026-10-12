@@ -11,6 +11,7 @@ import { AppTabs } from './src/navigation/AppTabs';
 import { createAppTheme } from './src/theme/appTheme';
 import { useBillScheduleSync } from './src/hooks/useBillScheduleSync';
 import { useSettingsStore } from './src/store';
+import { WhatsAppShareProvider } from './src/whatsapp/WhatsAppShareProvider';
 
 export default function App() {
   useBillScheduleSync();
@@ -39,10 +40,12 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <PaperProvider theme={appTheme}>
-        <NavigationContainer theme={navigationTheme}>
-          <StatusBar style="light" />
-          <AppTabs />
-        </NavigationContainer>
+        <WhatsAppShareProvider>
+          <NavigationContainer theme={navigationTheme}>
+            <StatusBar style="light" />
+            <AppTabs />
+          </NavigationContainer>
+        </WhatsAppShareProvider>
       </PaperProvider>
     </SafeAreaProvider>
   );

@@ -14,6 +14,10 @@ import {
 import { radius, spacing } from '../../styles/layout';
 import { getStatusLabel, useT } from '../../i18n';
 import { useDateFormat } from '../../hooks/useDateFormat';
+import { useWhatsAppShare } from '../../whatsapp/useWhatsAppShare';
+import { useSettlementsStore } from '../../store';
+import { buildSettlementInput, buildSettlementPaidInput } from '../../messages/buildInputs';
+import { buildSettlementMessage, buildSettlementPaidMessage } from '../../messages/templates';
 
 interface Props {
   settlement: Settlement;
@@ -35,8 +39,34 @@ export function SettlementCard({
   const theme = useTheme();
   const { t } = useT();
   const { formatIndianDate } = useDateFormat();
+  const { share } = useWhatsAppShare();
+  const markStatementSent = useSettlementsStore((state) => state.markStatementSent);
+  const markPaidMessageSent = useSettlementsStore((state) => state.markPaidMessageSent);
   const [statementVisible, setStatementVisible] = useState(false);
   const status = getSettlementStatus(settlement);
+  const sendStatement = () => {
+    if (!unit || !building || !settlement.tenantPhone) return;
+    const input = buildSettlementInput(settlement, unit, building);
+    share({
+      recipientName: settlement.tenantName,
+      phone: settlement.tenantPhone,
+      defaultLanguage: settlement.messageLanguage ?? 'hi',
+      buildMessage: (language) => buildSettlementMessage(input, language),
+      onSent: () => markStatementSent(settlement.id),
+    });
+  };
+  const sendPaidMessage = () => {
+    if (!unit || !building) return;
+    const input = buildSettlementPaidInput(settlement, unit, building);
+    if (!input) return;
+    share({
+      recipientName: settlement.tenantName,
+      phone: settlement.tenantPhone,
+      defaultLanguage: settlement.messageLanguage ?? 'hi',
+      buildMessage: (language) => buildSettlementPaidMessage(input, language),
+      onSent: () => markPaidMessageSent(settlement.id),
+    });
+  };
   return (
     <Surface style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={2}>
       <View style={styles.header}>
@@ -52,10 +82,21 @@ export function SettlementCard({
         <Chip compact>{getStatusLabel(status, t)}</Chip>
       </View>
       <Text variant="titleMedium">{getSettlementSummaryText(settlement.netAmount)}</Text>
+      {settlement.statementSentAt ? <Chip compact>{t('whatsapp.statementSent')}</Chip> : null}
+      {settlement.paidMessageSentAt ? <Chip compact>{t('whatsapp.confirmationSent')}</Chip> : null}
       <View style={styles.actions}>
         <Button mode="outlined" onPress={() => setStatementVisible(true)}>
           Statement
         </Button>
+        {settlement.tenantPhone ? (
+          <Button mode="outlined" onPress={sendStatement} disabled={!unit || !building}>
+            {t('whatsapp.sendStatement')}
+          </Button>
+        ) : (
+          <Button mode="outlined" disabled>
+            {t('whatsapp.noNumberSaved')}
+          </Button>
+        )}
         {status === 'Balance due' || status === 'Refund pending' ? (
           <Button mode="contained" onPress={() => onMarkPaid(settlement.id)}>
             {status === 'Balance due' ? 'Mark received' : 'Mark refunded'}
@@ -78,9 +119,16 @@ export function SettlementCard({
           </Button>
         )}
         {status === 'Settled' && settlement.paidDate && settlement.method ? (
-          <Button mode="text" compact onPress={() => onChangePaid(settlement.id)}>
-            Change date / method
-          </Button>
+          <>
+            <Button mode="text" compact onPress={() => onChangePaid(settlement.id)}>
+              Change date / method
+            </Button>
+            {!settlement.paidMessageSentAt ? (
+              <Button mode="text" compact onPress={sendPaidMessage}>
+                {t('whatsapp.sendConfirmation')}
+              </Button>
+            ) : null}
+          </>
         ) : null}
       </View>
       <Portal>

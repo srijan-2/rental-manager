@@ -240,6 +240,8 @@ export function moveOutTenant(input: MoveOutInput): Settlement {
     id: settlementId,
     tenantId: tenant.id,
     tenantName: tenant.name,
+    tenantPhone: tenant.phone,
+    messageLanguage: tenant.messageLanguage,
     unitId: unit.id,
     moveOutDate: input.moveOutDate,
     billIds: tenantBills.map((bill) => bill.id),

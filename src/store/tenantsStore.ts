@@ -7,6 +7,8 @@ interface State {
   addTenant: (tenant: Tenant) => void;
   updateTenant: (id: string, updates: Partial<Tenant>) => void;
   deleteTenant: (id: string) => void;
+  markWelcomeSent: (id: string) => void;
+  updateMessageLanguage: (id: string, language: 'hi' | 'en') => void;
 }
 export const useTenantsStore = create<State>()(
   persist(
@@ -16,13 +18,25 @@ export const useTenantsStore = create<State>()(
       updateTenant: (id, updates) =>
         set((s) => ({ tenants: s.tenants.map((t) => (t.id === id ? { ...t, ...updates } : t)) })),
       deleteTenant: (id) => set((s) => ({ tenants: s.tenants.filter((t) => t.id !== id) })),
+      markWelcomeSent: (id) =>
+        set((s) => ({
+          tenants: s.tenants.map((tenant) =>
+            tenant.id === id ? { ...tenant, welcomeSentAt: new Date().toISOString() } : tenant
+          ),
+        })),
+      updateMessageLanguage: (id, language) =>
+        set((s) => ({
+          tenants: s.tenants.map((tenant) =>
+            tenant.id === id ? { ...tenant, messageLanguage: language } : tenant
+          ),
+        })),
     }),
     {
       name: 'rm-tenants',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => AsyncStorage),
       migrate: (state, version) => {
-        if (version >= 3) return state;
+        if (version >= 4) return state;
         const persisted = state as Record<string, unknown> & {
           tenants?: Array<
             Omit<Tenant, 'electricityAdvance' | 'openingMeterReading' | 'billingStartDate'> &
@@ -31,15 +45,17 @@ export const useTenantsStore = create<State>()(
               >
           >;
         };
-        return {
+        const migrated = {
           ...persisted,
           tenants: (persisted.tenants ?? []).map((tenant) => ({
             ...tenant,
             electricityAdvance: tenant.electricityAdvance ?? 0,
             openingMeterReading: tenant.openingMeterReading ?? 0,
             billingStartDate: tenant.billingStartDate ?? tenant.moveInDate,
+            messageLanguage: tenant.messageLanguage ?? 'hi',
           })),
         };
+        return migrated;
       },
     }
   )

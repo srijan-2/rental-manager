@@ -12,6 +12,8 @@ interface State {
   addSettlement: (settlement: Settlement) => void;
   markSettlementPaid: (id: string, method: SettledMethod, date?: string) => void;
   markSettlementUnpaid: (id: string) => void;
+  markStatementSent: (id: string) => void;
+  markPaidMessageSent: (id: string) => void;
 }
 
 export const useSettlementsStore = create<State>()(
@@ -31,6 +33,22 @@ export const useSettlementsStore = create<State>()(
           settlements: state.settlements.map((settlement) =>
             settlement.id === id
               ? { ...settlement, paidDate: undefined, method: undefined }
+              : settlement
+          ),
+        })),
+      markStatementSent: (id) =>
+        set((state) => ({
+          settlements: state.settlements.map((settlement) =>
+            settlement.id === id
+              ? { ...settlement, statementSentAt: new Date().toISOString() }
+              : settlement
+          ),
+        })),
+      markPaidMessageSent: (id) =>
+        set((state) => ({
+          settlements: state.settlements.map((settlement) =>
+            settlement.id === id
+              ? { ...settlement, paidMessageSentAt: new Date().toISOString() }
               : settlement
           ),
         })),

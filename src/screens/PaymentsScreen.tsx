@@ -1,7 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, SectionList, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Chip, Searchbar, SegmentedButtons, Surface, Text, useTheme } from 'react-native-paper';
+import {
+  Chip,
+  Searchbar,
+  SegmentedButtons,
+  Snackbar,
+  Surface,
+  Text,
+  useTheme,
+} from 'react-native-paper';
 import { PaymentCard } from '../components/payments/PaymentCard';
 import { PaymentDialog, RecordedPaymentMethod } from '../components/payments/PaymentDialog';
 import { SettlementCard } from '../components/payments/SettlementCard';
@@ -20,6 +28,21 @@ import { getBillAmounts, getBillStatus, getPaymentsSummary } from '../utils/paym
 import { formatINR, formatUnitLabel } from '../utils';
 import { useToday } from '../hooks/useToday';
 import { canEditReading } from '../utils/readings';
+import {
+  buildBillInput,
+  buildReceiptInput,
+  buildReminderInput,
+  buildSettlementPaidInput,
+} from '../messages/buildInputs';
+import {
+  buildBillMessage,
+  buildReceiptMessage,
+  buildReminderMessage,
+  buildSettlementPaidMessage,
+} from '../messages/templates';
+import { useWhatsAppShare } from '../whatsapp/useWhatsAppShare';
+import { useT } from '../i18n';
+import { daysSince } from '../utils/relativeDays';
 
 interface PaymentSection {
   title: string;
@@ -53,6 +76,16 @@ export function PaymentsScreen() {
   const [settlementId, setSettlementId] = useState<string | null>(null);
   const today = useToday();
   const { openReading, readingModal } = useReadingEntry();
+  const { share } = useWhatsAppShare();
+  const { t } = useT();
+  const markReceiptSent = usePaymentsStore((state) => state.markReceiptSent);
+  const markReminderSent = usePaymentsStore((state) => state.markReminderSent);
+  const markPaidMessageSent = useSettlementsStore((state) => state.markPaidMessageSent);
+  const [receiptPrompt, setReceiptPrompt] = useState<{
+    id: string;
+    components: ('rent' | 'electricity')[];
+  } | null>(null);
+  const [paidMessagePrompt, setPaidMessagePrompt] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,6 +98,120 @@ export function PaymentsScreen() {
     () => new Map(buildings.map((building) => [building.id, building])),
     [buildings]
   );
+  const tenantById = useMemo(
+    () => new Map(tenants.map((tenant) => [tenant.id, tenant])),
+    [tenants]
+  );
+
+  const sendBill = (billId: string) => {
+    const bill = payments.find((item) => item.id === billId);
+    const tenant = bill ? tenantById.get(bill.tenantId) : undefined;
+    const unit = bill ? unitById.get(bill.unitId) : undefined;
+    const building = unit ? buildingById.get(unit.buildingId) : undefined;
+    const input =
+      bill && tenant && unit && building
+        ? buildBillInput(bill, tenant, unit, building, today)
+        : null;
+    if (!bill || !tenant || !input) return;
+    share({
+      recipientName: tenant.name,
+      phone: tenant.phone,
+      defaultLanguage: tenant.messageLanguage,
+      buildMessage: (language) => buildBillMessage(input, language),
+      onSent: () =>
+        usePaymentsStore.getState().markBillShared(bill.id, getBillAmounts(bill).totalBilled),
+    });
+  };
+
+  const sendReceipt = (billId: string, components: ('rent' | 'electricity')[]) => {
+    const bill = usePaymentsStore.getState().payments.find((item) => item.id === billId);
+    const tenant = bill
+      ? useTenantsStore.getState().tenants.find((item) => item.id === bill.tenantId)
+      : undefined;
+    const unit = bill
+      ? useUnitsStore.getState().units.find((item) => item.id === bill.unitId)
+      : undefined;
+    const building = unit
+      ? useBuildingsStore.getState().buildings.find((item) => item.id === unit.buildingId)
+      : undefined;
+    const input =
+      bill && tenant && unit && building
+        ? buildReceiptInput(bill, tenant, unit, building, components)
+        : null;
+    if (!bill || !tenant || !input) return;
+    share({
+      recipientName: tenant.name,
+      phone: tenant.phone,
+      defaultLanguage: tenant.messageLanguage,
+      buildMessage: (language) => buildReceiptMessage(input, language),
+      onSent: () => markReceiptSent(bill.id, components),
+    });
+  };
+
+  const sendReminder = (billId: string) => {
+    const bill = usePaymentsStore.getState().payments.find((item) => item.id === billId);
+    const tenant = bill
+      ? useTenantsStore.getState().tenants.find((item) => item.id === bill.tenantId)
+      : undefined;
+    const unit = bill
+      ? useUnitsStore.getState().units.find((item) => item.id === bill.unitId)
+      : undefined;
+    const building = unit
+      ? useBuildingsStore.getState().buildings.find((item) => item.id === unit.buildingId)
+      : undefined;
+    if (!bill || !tenant || !unit || !building) return;
+    const open = () => {
+      const input = buildReminderInput(
+        bill,
+        tenant,
+        unit,
+        building,
+        today,
+        getBillStatus(bill, today) === 'Overdue'
+      );
+      share({
+        recipientName: tenant.name,
+        phone: tenant.phone,
+        defaultLanguage: tenant.messageLanguage,
+        buildMessage: (language) => buildReminderMessage(input, language),
+        onSent: () => markReminderSent(bill.id),
+      });
+    };
+    if (bill.lastReminderAt?.slice(0, 10) === today) {
+      Alert.alert(
+        t('whatsapp.alreadyRemindedTitle', { name: tenant.name }),
+        t('whatsapp.alreadyRemindedMessage'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('whatsapp.sendAgain'), onPress: open },
+        ]
+      );
+    } else {
+      open();
+    }
+  };
+
+  const sendPaidMessage = (settlementIdToSend: string) => {
+    const settlement = useSettlementsStore
+      .getState()
+      .settlements.find((item) => item.id === settlementIdToSend);
+    const unit = settlement
+      ? useUnitsStore.getState().units.find((item) => item.id === settlement.unitId)
+      : undefined;
+    const building = unit
+      ? useBuildingsStore.getState().buildings.find((item) => item.id === unit.buildingId)
+      : undefined;
+    const input =
+      settlement && unit && building ? buildSettlementPaidInput(settlement, unit, building) : null;
+    if (!settlement || !unit || !building || !input) return;
+    share({
+      recipientName: settlement.tenantName,
+      phone: settlement.tenantPhone,
+      defaultLanguage: settlement.messageLanguage ?? 'hi',
+      buildMessage: (language) => buildSettlementPaidMessage(input, language),
+      onSent: () => markPaidMessageSent(settlement.id),
+    });
+  };
 
   const summary = useMemo(
     () => getPaymentsSummary(payments, settlements, today),
@@ -161,9 +308,14 @@ export function PaymentsScreen() {
       if (collection.action === 'rent') markRentPaid(collection.id, method, date);
       if (collection.action === 'electricity') markElectricityPaid(collection.id, method, date);
       if (collection.action === 'all') markAllPaid(collection.id, method, date);
+      setReceiptPrompt({
+        id: collection.id,
+        components: collection.action === 'all' ? ['rent', 'electricity'] : [collection.action],
+      });
     }
     if (selectedSettlement) {
       markSettlementPaid(selectedSettlement.id, method, date);
+      setPaidMessagePrompt(selectedSettlement.id);
     }
     setCollection(null);
     setSettlementId(null);
@@ -342,6 +494,7 @@ export function PaymentsScreen() {
         renderItem={({ item }) => (
           <PaymentCard
             bill={item}
+            tenant={tenantById.get(item.tenantId)}
             unit={unitById.get(item.unitId)}
             building={
               unitById.get(item.unitId)
@@ -359,6 +512,9 @@ export function PaymentsScreen() {
             onMarkRentUnpaid={(id) => confirmUnpaid(id, 'rent')}
             onMarkElectricityUnpaid={(id) => confirmUnpaid(id, 'electricity')}
             onDeleteBill={confirmDelete}
+            onSendBill={sendBill}
+            onSendReceipt={(id, components) => sendReceipt(id, components)}
+            onRemind={sendReminder}
           />
         )}
         ListEmptyComponent={
@@ -386,6 +542,33 @@ export function PaymentsScreen() {
         }}
         onConfirm={confirmCollection}
       />
+      <Snackbar
+        visible={Boolean(receiptPrompt || paidMessagePrompt)}
+        onDismiss={() => {
+          setReceiptPrompt(null);
+          setPaidMessagePrompt(null);
+        }}
+        duration={10000}
+        action={
+          receiptPrompt
+            ? {
+                label: t('whatsapp.sendReceipt'),
+                onPress: () => {
+                  sendReceipt(receiptPrompt.id, receiptPrompt.components);
+                  setReceiptPrompt(null);
+                },
+              }
+            : {
+                label: t('whatsapp.sendConfirmation'),
+                onPress: () => {
+                  if (paidMessagePrompt) sendPaidMessage(paidMessagePrompt);
+                  setPaidMessagePrompt(null);
+                },
+              }
+        }
+      >
+        {receiptPrompt ? t('whatsapp.paymentSaved') : t('whatsapp.paymentSaved')}
+      </Snackbar>
     </View>
   );
 }

@@ -20,4 +20,8 @@ export interface Settlement {
   createdAt: string;
   finalRentDetail?: string;
   finalElectricityDetail?: string;
+  tenantPhone?: string;
+  messageLanguage?: 'hi' | 'en';
+  statementSentAt?: string;
+  paidMessageSentAt?: string;
 }

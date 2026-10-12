@@ -57,3 +57,7 @@ Personal, single-user rental management app (buildings, units, tenants, rent, el
 3. Report every file you changed and anything you skipped.
 
 All user-visible text goes through `t()` (`src/i18n`). Add every new key to BOTH `en.ts` and `hi.ts` (tsc enforces it). Use the terms in `src/i18n/GLOSSARY.md`, short simple sentences, no jargon. Never store translated text in data; stored enums stay English. Dates use the language-aware formatters.
+
+WhatsApp messaging: Messages are built only by `src/messages/templates.ts` from plain data, in the TENANT's message language (not the UI language). Sending goes through `useWhatsAppShare` (wa.me link, owner presses Send in WhatsApp); sent status is recorded only after the owner confirms. Phone numbers are normalized with `src/utils/phone.ts`. No tenant data leaves the phone except through the message the owner sends.
+
+Receipts, reminders and settlement messages follow the same rules: built by `templates.ts`, sent only through `useWhatsAppShare`, recorded as sent only after the owner confirms. Settlements snapshot the tenant's phone and message language at move-out because the tenant record is deleted.

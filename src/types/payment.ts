@@ -26,5 +26,11 @@ export interface Payment {
   electricityMethod?: PaymentMethod;
   isFinal?: boolean;
   settlementId?: string;
+  sharedAt?: string;
+  sharedTotal?: number;
+  rentReceiptSentAt?: string;
+  electricityReceiptSentAt?: string;
+  lastReminderAt?: string;
+  reminderCount?: number;
   createdAt: string;
 }

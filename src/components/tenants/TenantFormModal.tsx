@@ -2,7 +2,16 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { useEffect, useMemo, useState } from 'react';
 import { Modal as RNModal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
-import { Button, HelperText, Modal, Portal, Text, TextInput, useTheme } from 'react-native-paper';
+import {
+  Button,
+  HelperText,
+  Modal,
+  Portal,
+  SegmentedButtons,
+  Text,
+  TextInput,
+  useTheme,
+} from 'react-native-paper';
 import { useBuildingsStore, useUnitsStore } from '../../store';
 import { radius, spacing } from '../../styles/layout';
 import { Tenant, TenantFormValues } from '../../types/tenant';
@@ -13,6 +22,8 @@ import {
   parseISODate,
   toISODate,
 } from '../../utils';
+import { isValidIndianMobile } from '../../utils/phone';
+import { useT } from '../../i18n';
 interface Props {
   visible: boolean;
   selectedTenant: Tenant | null;
@@ -28,9 +39,11 @@ const DEFAULT: TenantFormValues = {
   electricityAdvance: '',
   openingMeterReading: '',
   billingStartDate: '',
+  messageLanguage: 'hi',
 };
 export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTenant }: Props) {
   const theme = useTheme();
+  const { t } = useT();
   const units = useUnitsStore((s) => s.units);
   const buildings = useBuildingsStore((s) => s.buildings);
   const [unitOpen, setUnitOpen] = useState(false);
@@ -66,6 +79,7 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
               electricityAdvance: selectedTenant.electricityAdvance.toLocaleString('en-IN'),
               openingMeterReading: String(selectedTenant.openingMeterReading),
               billingStartDate: selectedTenant.billingStartDate,
+              messageLanguage: selectedTenant.messageLanguage ?? 'hi',
             }
           : DEFAULT
       );
@@ -135,11 +149,15 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
         <Controller
           control={control}
           name="phone"
-          rules={{ required: 'Phone is required' }}
+          rules={{
+            required: 'WhatsApp number is required',
+            validate: (value) => isValidIndianMobile(value) || t('whatsapp.phoneInvalid'),
+          }}
           render={({ field: { onChange, value } }) => (
             <TextInput
-              label="Phone"
+              label="WhatsApp number"
               mode="outlined"
+              keyboardType="phone-pad"
               value={value}
               onChangeText={onChange}
               error={Boolean(errors.phone)}
@@ -149,6 +167,29 @@ export function TenantFormModal({ visible, selectedTenant, onDismiss, onSubmitTe
         <HelperText type="error" visible={Boolean(errors.phone)}>
           {errors.phone?.message}
         </HelperText>
+        <HelperText type="info" visible={!errors.phone}>
+          {t('whatsapp.phoneHelp')}
+        </HelperText>
+        <Controller
+          control={control}
+          name="messageLanguage"
+          render={({ field: { onChange, value } }) => (
+            <View style={styles.languageField}>
+              <Text variant="labelLarge">{t('whatsapp.messageLanguage')}</Text>
+              <SegmentedButtons
+                value={value}
+                onValueChange={onChange}
+                buttons={[
+                  { value: 'hi', label: 'हिन्दी' },
+                  { value: 'en', label: 'English' },
+                ]}
+              />
+              <HelperText type="info" visible>
+                {t('whatsapp.messageLanguageHelp')}
+              </HelperText>
+            </View>
+          )}
+        />
         <Controller
           control={control}
           name="unitId"
@@ -385,6 +426,7 @@ const styles = StyleSheet.create({
   title: { fontWeight: '700', marginBottom: spacing.sm },
   sectionTitle: { fontWeight: '700', marginTop: spacing.sm },
   dateField: { gap: spacing.xs },
+  languageField: { gap: spacing.xs },
   selector: {
     minHeight: 52,
     borderWidth: 1,

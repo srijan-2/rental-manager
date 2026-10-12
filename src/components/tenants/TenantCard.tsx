@@ -1,12 +1,13 @@
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Avatar, Button, IconButton, Surface, Text, useTheme } from 'react-native-paper';
+import { Avatar, Button, Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 import { radius, spacing } from '../../styles/layout';
 import { Tenant } from '../../types/tenant';
 import { Building } from '../../types/building';
 import { RentalUnit } from '../../types/unit';
 import { formatINR, formatUnitLabel } from '../../utils';
 import { useDateFormat } from '../../hooks/useDateFormat';
+import { useT } from '../../i18n';
 
 interface TenantCardProps {
   tenant: Tenant;
@@ -15,13 +16,24 @@ interface TenantCardProps {
   onEdit: (tenant: Tenant) => void;
   onDelete: (tenantId: string) => void;
   onMoveOut: (tenantId: string) => void;
+  onSendWelcome: (tenantId: string) => void;
   hasActivity: boolean;
 }
 
 export const TenantCard = memo(
-  ({ tenant, unit, building, onEdit, onDelete, onMoveOut, hasActivity }: TenantCardProps) => {
+  ({
+    tenant,
+    unit,
+    building,
+    onEdit,
+    onDelete,
+    onMoveOut,
+    onSendWelcome,
+    hasActivity,
+  }: TenantCardProps) => {
     const theme = useTheme();
     const { formatIndianDate } = useDateFormat();
+    const { t } = useT();
 
     return (
       <Surface
@@ -45,6 +57,11 @@ export const TenantCard = memo(
           </View>
           <View style={styles.actions}>
             <IconButton icon="pencil-outline" onPress={() => onEdit(tenant)} />
+            <IconButton
+              icon="whatsapp"
+              accessibilityLabel={t('whatsapp.sendWelcome')}
+              onPress={() => onSendWelcome(tenant.id)}
+            />
             <Button mode="contained-tonal" compact onPress={() => onMoveOut(tenant.id)}>
               Move out
             </Button>
@@ -63,6 +80,7 @@ export const TenantCard = memo(
         <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
           Move-in: {formatIndianDate(tenant.moveInDate)}
         </Text>
+        {tenant.welcomeSentAt ? <Chip compact>{t('whatsapp.welcomeSent')}</Chip> : null}
       </Surface>
     );
   }
