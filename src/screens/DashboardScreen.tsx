@@ -11,7 +11,13 @@ import { SummaryCard } from '../components/dashboard/SummaryCard';
 import { useReadingEntry } from '../hooks/useReadingEntry';
 import { useToday } from '../hooks/useToday';
 import { RootTabParamList } from '../navigation/AppTabs';
-import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
+import {
+  useBuildingsStore,
+  usePaymentsStore,
+  useSettlementsStore,
+  useTenantsStore,
+  useUnitsStore,
+} from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { getDashboardStats } from '../utils/dashboard';
 import { formatINR, formatUnitLabel } from '../utils';
@@ -29,10 +35,11 @@ export function DashboardScreen() {
   const units = useUnitsStore((state) => state.units);
   const tenants = useTenantsStore((state) => state.tenants);
   const payments = usePaymentsStore((state) => state.payments);
+  const settlements = useSettlementsStore((state) => state.settlements);
   const { openReading, readingModal } = useReadingEntry();
   const stats = useMemo(
-    () => getDashboardStats({ buildings, units, tenants, payments }, today),
-    [buildings, payments, tenants, today, units]
+    () => getDashboardStats({ buildings, units, tenants, payments, settlements }, today),
+    [buildings, payments, settlements, tenants, today, units]
   );
   const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
   const buildingById = useMemo(
@@ -43,7 +50,10 @@ export function DashboardScreen() {
   const hasUnits = stats.totals.totalUnits > 0;
   const hasTenants = tenants.length > 0;
   const hasAttention =
-    stats.readingsDue.length > 0 || stats.billsToCollect.length > 0 || stats.endingSoon.length > 0;
+    stats.readingsDue.length > 0 ||
+    stats.billsToCollect.length > 0 ||
+    stats.endingSoon.length > 0 ||
+    stats.summary.refundsPendingCount > 0;
 
   return (
     <ScrollView

@@ -2,6 +2,7 @@ import { Building } from '../types/building';
 import { Payment } from '../types/payment';
 import { Tenant } from '../types/tenant';
 import { RentalUnit } from '../types/unit';
+import { Settlement } from '../types/settlement';
 import { getBillAmounts, getBillStatus, getPaymentsSummary } from './payments';
 import { parseISODate, toISODate } from './date';
 
@@ -10,10 +11,11 @@ interface DashboardInput {
   units: RentalUnit[];
   tenants: Tenant[];
   payments: Payment[];
+  settlements: Settlement[];
 }
 
 export function getDashboardStats(
-  { buildings, units, tenants, payments }: DashboardInput,
+  { buildings, units, tenants, payments, settlements }: DashboardInput,
   todayIso: string
 ) {
   const tenantsById = new Map(tenants.map((tenant) => [tenant.id, tenant]));
@@ -27,7 +29,7 @@ export function getDashboardStats(
     const unit = unitsById.get(bill.unitId);
     return Boolean(unit && tenantsById.has(bill.tenantId) && buildingsById.has(unit.buildingId));
   });
-  const summary = getPaymentsSummary(validBills, todayIso);
+  const summary = getPaymentsSummary(validBills, settlements, todayIso);
   const readingsDue = validBills
     .filter((bill) => getBillStatus(bill, todayIso) === 'Calculation pending')
     .sort((a, b) => a.cycleStart.localeCompare(b.cycleStart));

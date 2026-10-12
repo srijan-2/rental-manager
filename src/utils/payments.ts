@@ -1,11 +1,16 @@
 import { Payment, BillStatus } from '../types/payment';
+import { Settlement } from '../types/settlement';
 import { parseISODate, toISODate } from './date';
 
 export const OVERDUE_GRACE_DAYS = 5;
 
-export function getPaymentsSummary(payments: Payment[], todayIso: string) {
+export function getPaymentsSummary(
+  payments: Payment[],
+  settlements: Settlement[],
+  todayIso: string
+) {
   const currentMonth = todayIso.slice(0, 7);
-  return payments.reduce(
+  const billSummary = payments.reduce(
     (summary, bill) => {
       const amounts = getBillAmounts(bill);
       if (bill.electricity) summary.electricityToCollect += amounts.electricityDue;
@@ -19,10 +24,13 @@ export function getPaymentsSummary(payments: Payment[], todayIso: string) {
         summary.overdueCount += 1;
         summary.overdueAmount += amounts.outstanding;
       }
-      if (bill.rentPaidDate?.slice(0, 7) === currentMonth) {
+      if (bill.rentPaidDate?.slice(0, 7) === currentMonth && bill.rentMethod !== 'Settlement') {
         summary.collectedThisMonth += bill.rentAmount;
       }
-      if (bill.electricityPaidDate?.slice(0, 7) === currentMonth) {
+      if (
+        bill.electricityPaidDate?.slice(0, 7) === currentMonth &&
+        bill.electricityMethod !== 'Settlement'
+      ) {
         summary.collectedThisMonth += bill.electricity?.amount ?? 0;
       }
       return summary;
@@ -35,8 +43,40 @@ export function getPaymentsSummary(payments: Payment[], todayIso: string) {
       overdueCount: 0,
       overdueAmount: 0,
       collectedThisMonth: 0,
+      settlementsDueAmount: 0,
+      refundsPendingAmount: 0,
+      refundsPendingCount: 0,
     }
   );
+  const settlementSummary = settlements.reduce(
+    (summary, settlement) => {
+      if (!settlement.paidDate && settlement.netAmount > 0) {
+        summary.settlementsDueAmount += settlement.netAmount;
+      }
+      if (!settlement.paidDate && settlement.netAmount < 0) {
+        summary.refundsPendingAmount += Math.abs(settlement.netAmount);
+        summary.refundsPendingCount += 1;
+      }
+      if (settlement.paidDate?.slice(0, 7) === currentMonth && settlement.netAmount > 0) {
+        summary.collectedThisMonth += settlement.netAmount;
+      }
+      return summary;
+    },
+    {
+      settlementsDueAmount: 0,
+      refundsPendingAmount: 0,
+      refundsPendingCount: 0,
+      collectedThisMonth: billSummary.collectedThisMonth,
+    }
+  );
+  return {
+    ...billSummary,
+    pendingToCollect: billSummary.pendingToCollect + settlementSummary.settlementsDueAmount,
+    settlementsDueAmount: settlementSummary.settlementsDueAmount,
+    refundsPendingAmount: settlementSummary.refundsPendingAmount,
+    refundsPendingCount: settlementSummary.refundsPendingCount,
+    collectedThisMonth: settlementSummary.collectedThisMonth,
+  };
 }
 
 export function isReadingWindowOpen(bill: Payment, todayIso: string) {

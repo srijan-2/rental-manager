@@ -1,4 +1,4 @@
-export type PaymentMethod = 'Cash' | 'Bank Transfer' | 'UPI' | 'Card';
+export type PaymentMethod = 'Cash' | 'Bank Transfer' | 'UPI' | 'Card' | 'Settlement';
 export type BillStatus = 'Paid' | 'In progress' | 'Calculation pending' | 'Overdue' | 'Due';
 
 export interface Payment {
@@ -24,5 +24,7 @@ export interface Payment {
   };
   electricityPaidDate?: string;
   electricityMethod?: PaymentMethod;
+  isFinal?: boolean;
+  settlementId?: string;
   createdAt: string;
 }

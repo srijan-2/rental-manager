@@ -4,9 +4,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Chip, Searchbar, SegmentedButtons, Surface, Text, useTheme } from 'react-native-paper';
 import { PaymentCard } from '../components/payments/PaymentCard';
 import { PaymentMethodDialog } from '../components/payments/PaymentMethodDialog';
+import { SettlementCard } from '../components/payments/SettlementCard';
 import { useReadingEntry } from '../hooks/useReadingEntry';
 import { ensureBillSchedule } from '../store/paymentSchedule';
-import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
+import {
+  useBuildingsStore,
+  usePaymentsStore,
+  useSettlementsStore,
+  useTenantsStore,
+  useUnitsStore,
+} from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { Payment, PaymentMethod } from '../types/payment';
 import { getBillAmounts, getBillStatus, getPaymentsSummary } from '../utils/payments';
@@ -34,12 +41,16 @@ export function PaymentsScreen() {
   const tenants = useTenantsStore((state) => state.tenants);
   const units = useUnitsStore((state) => state.units);
   const buildings = useBuildingsStore((state) => state.buildings);
+  const settlements = useSettlementsStore((state) => state.settlements);
+  const markSettlementPaid = useSettlementsStore((state) => state.markSettlementPaid);
+  const markSettlementUnpaid = useSettlementsStore((state) => state.markSettlementUnpaid);
   const [tab, setTab] = useState('upcoming');
   const [search, setSearch] = useState('');
   const [buildingFilter, setBuildingFilter] = useState('');
   const [collection, setCollection] = useState<{ id: string; action: CollectionAction } | null>(
     null
   );
+  const [settlementId, setSettlementId] = useState<string | null>(null);
   const today = useToday();
   const { openReading, readingModal } = useReadingEntry();
 
@@ -55,7 +66,10 @@ export function PaymentsScreen() {
     [buildings]
   );
 
-  const summary = useMemo(() => getPaymentsSummary(payments, today), [payments, today]);
+  const summary = useMemo(
+    () => getPaymentsSummary(payments, settlements, today),
+    [payments, settlements, today]
+  );
 
   const upcomingSections = useMemo<PaymentSection[]>(() => {
     const sections = new Map<string, Payment[]>();
@@ -72,6 +86,26 @@ export function PaymentsScreen() {
         data: data.sort((a, b) => a.dueDate.localeCompare(b.dueDate)),
       }));
   }, [payments, today]);
+
+  const unpaidSettlements = useMemo(
+    () => settlements.filter((settlement) => !settlement.paidDate && settlement.netAmount !== 0),
+    [settlements]
+  );
+  const settledSettlements = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return settlements.filter((settlement) => {
+      if (!settlement.paidDate) return false;
+      const unit = unitById.get(settlement.unitId);
+      const building = unit ? buildingById.get(unit.buildingId) : undefined;
+      return (
+        (!buildingFilter || building?.id === buildingFilter) &&
+        [settlement.tenantName, unit ? formatUnitLabel(unit, building) : '', building?.name ?? '']
+          .join(' ')
+          .toLowerCase()
+          .includes(query)
+      );
+    });
+  }, [buildingById, buildingFilter, search, settlements, unitById]);
 
   const historySections = useMemo<PaymentSection[]>(() => {
     const query = search.trim().toLowerCase();
@@ -117,6 +151,9 @@ export function PaymentsScreen() {
   const collectionBill = collection
     ? payments.find((bill) => bill.id === collection.id)
     : undefined;
+  const selectedSettlement = settlementId
+    ? settlements.find((settlement) => settlement.id === settlementId)
+    : undefined;
 
   const openCollection = (id: string, action: CollectionAction) => setCollection({ id, action });
   const confirmCollection = (method: PaymentMethod) => {
@@ -125,7 +162,11 @@ export function PaymentsScreen() {
       if (collection.action === 'electricity') markElectricityPaid(collection.id, method);
       if (collection.action === 'all') markAllPaid(collection.id, method);
     }
+    if (selectedSettlement) {
+      markSettlementPaid(selectedSettlement.id, method === 'Settlement' ? 'Cash' : method);
+    }
     setCollection(null);
+    setSettlementId(null);
   };
   const confirmUnpaid = (id: string, kind: 'rent' | 'electricity') => {
     Alert.alert('Mark payment unpaid?', 'This will remove its paid date and method.', [
@@ -211,6 +252,48 @@ export function PaymentsScreen() {
           />
         </>
       ) : null}
+      {tab === 'upcoming' && unpaidSettlements.length ? (
+        <View style={styles.settlementSection}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            Move-out settlements ({unpaidSettlements.length})
+          </Text>
+          {unpaidSettlements.map((settlement) => (
+            <SettlementCard
+              key={settlement.id}
+              settlement={settlement}
+              unit={unitById.get(settlement.unitId)}
+              building={
+                unitById.get(settlement.unitId)
+                  ? buildingById.get(unitById.get(settlement.unitId)!.buildingId)
+                  : undefined
+              }
+              onMarkPaid={setSettlementId}
+              onMarkUnpaid={markSettlementUnpaid}
+            />
+          ))}
+        </View>
+      ) : null}
+      {tab === 'history' && settledSettlements.length ? (
+        <View style={styles.settlementSection}>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            Move-out settlements
+          </Text>
+          {settledSettlements.map((settlement) => (
+            <SettlementCard
+              key={settlement.id}
+              settlement={settlement}
+              unit={unitById.get(settlement.unitId)}
+              building={
+                unitById.get(settlement.unitId)
+                  ? buildingById.get(unitById.get(settlement.unitId)!.buildingId)
+                  : undefined
+              }
+              onMarkPaid={setSettlementId}
+              onMarkUnpaid={markSettlementUnpaid}
+            />
+          ))}
+        </View>
+      ) : null}
       <SectionList<Payment, PaymentSection>
         sections={tab === 'upcoming' ? upcomingSections : historySections}
         keyExtractor={(item) => item.id}
@@ -259,8 +342,11 @@ export function PaymentsScreen() {
       />
       {readingModal}
       <PaymentMethodDialog
-        visible={Boolean(collectionBill)}
-        onDismiss={() => setCollection(null)}
+        visible={Boolean(collectionBill || selectedSettlement)}
+        onDismiss={() => {
+          setCollection(null);
+          setSettlementId(null);
+        }}
         onConfirm={confirmCollection}
       />
     </View>
@@ -296,5 +382,6 @@ const styles = StyleSheet.create({
   list: { paddingBottom: spacing.xxl },
   sectionHeader: { gap: spacing.xxs, marginBottom: spacing.xs, marginTop: spacing.sm },
   sectionTitle: { fontWeight: '700' },
+  settlementSection: { maxHeight: 360 },
   emptyText: { padding: spacing.lg, textAlign: 'center' },
 });

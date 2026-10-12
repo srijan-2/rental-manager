@@ -104,7 +104,7 @@ export const PaymentCard = memo(
             <Button mode="contained-tonal" onPress={() => onCollectRent(bill.id)}>
               Collect rent
             </Button>
-          ) : bill.rentPaidDate ? (
+          ) : bill.rentPaidDate && bill.rentMethod !== 'Settlement' ? (
             <Button mode="text" onPress={() => onMarkRentUnpaid(bill.id)}>
               Mark rent unpaid
             </Button>
@@ -113,7 +113,7 @@ export const PaymentCard = memo(
             <Button mode="contained-tonal" onPress={() => onCollectElectricity(bill.id)}>
               Collect electricity
             </Button>
-          ) : bill.electricityPaidDate ? (
+          ) : bill.electricityPaidDate && bill.electricityMethod !== 'Settlement' ? (
             <Button mode="text" onPress={() => onMarkElectricityUnpaid(bill.id)}>
               Mark electricity unpaid
             </Button>
@@ -131,12 +131,16 @@ export const PaymentCard = memo(
         </View>
         {bill.rentPaidDate ? (
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Rent paid {formatIndianDate(bill.rentPaidDate)} · {bill.rentMethod}
+            {bill.rentMethod === 'Settlement'
+              ? 'Settled at move-out'
+              : `Rent paid ${formatIndianDate(bill.rentPaidDate)} · ${bill.rentMethod}`}
           </Text>
         ) : null}
         {bill.electricityPaidDate ? (
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
-            Electricity paid {formatIndianDate(bill.electricityPaidDate)} · {bill.electricityMethod}
+            {bill.electricityMethod === 'Settlement'
+              ? 'Settled at move-out'
+              : `Electricity paid ${formatIndianDate(bill.electricityPaidDate)} · ${bill.electricityMethod}`}
           </Text>
         ) : null}
         {status === 'Paid' ? (

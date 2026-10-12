@@ -24,6 +24,7 @@ Personal, single-user rental management app (buildings, units, tenants, rent, el
 - Round money with roundMoney before storing.
 - Dashboard and Payments summaries come only from getPaymentsSummary (utils/payments.ts) and getDashboardStats (utils/dashboard.ts). Never hardcode metrics or recompute them inline.
 - Units with a tenant or billing history are never hard-deleted: archive them (archivedAt). Archived units are excluded from unit lists, tenant pickers and dashboard totals but their bills stay valid. Buildings can only be deleted when they have no units (archived included). Use the actions in src/store/actions.ts for unit/building edits and deletes.
+- Move-out: moveOutTenant (actions.ts) is the only way to end a tenancy that has billing activity. It truncates the final bill, marks all unpaid components paid with method 'Settlement', records a Settlement, frees the unit and deletes the tenant record; bills are never deleted. Collected-this-month counts cash only (never method 'Settlement'). The electricity advance is held during the tenancy and applied only at move-out.
 
 ## Hard rules
 

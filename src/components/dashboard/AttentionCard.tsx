@@ -12,12 +12,17 @@ interface AttentionCardProps {
   overdueAmount: number;
   awaitingCalculationCount: number;
   awaitingRent: number;
+  refundsPendingAmount: number;
+  refundsPendingCount: number;
 }
 
 export function AttentionCard(props: AttentionCardProps) {
   const theme = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
-  const caughtUp = props.pendingToCollect === 0 && props.awaitingCalculationCount === 0;
+  const caughtUp =
+    props.pendingToCollect === 0 &&
+    props.awaitingCalculationCount === 0 &&
+    props.refundsPendingCount === 0;
   return (
     <Pressable onPress={() => navigation.navigate('Payments')} accessibilityRole="button">
       <Surface
@@ -43,6 +48,11 @@ export function AttentionCard(props: AttentionCardProps) {
           <Text variant="bodyMedium" style={{ color: theme.colors.tertiary }}>
             {props.awaitingCalculationCount} units awaiting meter reading · rent{' '}
             {formatINR(props.awaitingRent)}
+          </Text>
+        ) : null}
+        {props.refundsPendingCount > 0 ? (
+          <Text variant="bodyMedium" style={{ color: theme.colors.tertiary }}>
+            Refunds to pay: {props.refundsPendingCount} · {formatINR(props.refundsPendingAmount)}
           </Text>
         ) : null}
         {caughtUp ? (

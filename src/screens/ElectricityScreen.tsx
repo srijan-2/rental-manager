@@ -11,7 +11,13 @@ import {
 } from 'react-native-paper';
 import { useReadingEntry } from '../hooks/useReadingEntry';
 import { useToday } from '../hooks/useToday';
-import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
+import {
+  useBuildingsStore,
+  usePaymentsStore,
+  useSettlementsStore,
+  useTenantsStore,
+  useUnitsStore,
+} from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { Payment } from '../types/payment';
 import { formatINR, formatIndianDate, formatUnitLabel } from '../utils';
@@ -27,6 +33,7 @@ export function ElectricityScreen() {
   const theme = useTheme();
   const today = useToday();
   const payments = usePaymentsStore((state) => state.payments);
+  const settlements = useSettlementsStore((state) => state.settlements);
   const tenants = useTenantsStore((state) => state.tenants);
   const units = useUnitsStore((state) => state.units);
   const buildings = useBuildingsStore((state) => state.buildings);
@@ -44,7 +51,7 @@ export function ElectricityScreen() {
     const assignedTenantIds = new Set(
       units.flatMap((unit) => (unit.tenantId ? [unit.tenantId] : []))
     );
-    const paymentSummary = getPaymentsSummary(payments, today);
+    const paymentSummary = getPaymentsSummary(payments, settlements, today);
     return {
       readingsDue: paymentSummary.awaitingCalculationCount,
       toCollect: paymentSummary.electricityToCollect,
@@ -52,7 +59,7 @@ export function ElectricityScreen() {
         .filter((tenant) => assignedTenantIds.has(tenant.id))
         .reduce((sum, tenant) => sum + tenant.electricityAdvance, 0),
     };
-  }, [payments, tenants, today, units]);
+  }, [payments, settlements, tenants, today, units]);
 
   const readingsSections = useMemo<BillSection[]>(() => {
     const due = payments

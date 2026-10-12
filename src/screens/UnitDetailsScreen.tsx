@@ -208,6 +208,12 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
                 <Text variant="bodyMedium">{payment.periodLabel}</Text>
                 <Text variant="bodyMedium">{formatINR(getBillAmounts(payment).totalBilled)}</Text>
                 <Chip compact>{getBillStatus(payment, today)}</Chip>
+                {payment.rentMethod === 'Settlement' ||
+                payment.electricityMethod === 'Settlement' ? (
+                  <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
+                    Settled at move-out
+                  </Text>
+                ) : null}
                 <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
                   {describeOutstanding(payment, today)}
                 </Text>

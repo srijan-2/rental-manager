@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Alert, FlatList, StyleSheet, View } from 'react-native';
-import { FAB, Searchbar, Text, useTheme } from 'react-native-paper';
+import { FAB, Searchbar, Snackbar, Text, useTheme } from 'react-native-paper';
 import { TenantCard } from '../components/tenants/TenantCard';
 import { TenantFormModal } from '../components/tenants/TenantFormModal';
+import { MoveOutScreen } from './MoveOutScreen';
 import {
   assignTenant,
   removeTenant,
   updateTenant,
   useBuildingsStore,
+  usePaymentsStore,
   useTenantsStore,
   useUnitsStore,
 } from '../store';
@@ -18,10 +20,13 @@ export function TenantsScreen() {
   const theme = useTheme();
   const tenants = useTenantsStore((s) => s.tenants);
   const units = useUnitsStore((s) => s.units);
+  const payments = usePaymentsStore((s) => s.payments);
   const buildings = useBuildingsStore((s) => s.buildings);
   const [query, setQuery] = useState('');
   const [visible, setVisible] = useState(false);
   const [selected, setSelected] = useState<Tenant | null>(null);
+  const [moveOutTenantId, setMoveOutTenantId] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q
@@ -83,6 +88,12 @@ export function TenantsScreen() {
                 setVisible(true);
               }}
               onDelete={del}
+              hasActivity={payments.some(
+                (bill) =>
+                  bill.tenantId === item.id &&
+                  Boolean(bill.rentPaidDate || bill.electricityPaidDate || bill.electricity)
+              )}
+              onMoveOut={setMoveOutTenantId}
             />
           );
         }}
@@ -109,6 +120,18 @@ export function TenantsScreen() {
         onDismiss={() => setVisible(false)}
         onSubmitTenant={submit}
       />
+      <MoveOutScreen
+        visible={Boolean(moveOutTenantId)}
+        tenantId={moveOutTenantId}
+        onDismiss={() => setMoveOutTenantId(null)}
+        onCompleted={() => {
+          setMoveOutTenantId(null);
+          setMessage('Move-out completed');
+        }}
+      />
+      <Snackbar visible={Boolean(message)} onDismiss={() => setMessage('')} duration={2500}>
+        {message}
+      </Snackbar>
     </View>
   );
 }
