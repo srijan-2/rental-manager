@@ -3,7 +3,7 @@ import { Alert, Keyboard, StyleSheet, View } from 'react-native';
 import { Button, Card, IconButton, Text, TextInput, useTheme } from 'react-native-paper';
 import { spacing } from '../../styles/layout';
 import { UnitNote } from '../../types/unit';
-import { formatIndianDate } from '../../utils';
+import { useDateFormat } from '../../hooks/useDateFormat';
 
 interface Props {
   notes: UnitNote[];
@@ -15,6 +15,7 @@ interface Props {
 
 export function UnitNotes({ notes, onAdd, onUpdate, onDelete, onMessage }: Props) {
   const theme = useTheme();
+  const { formatIndianDate } = useDateFormat();
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const sortedNotes = [...notes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));

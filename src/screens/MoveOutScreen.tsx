@@ -21,12 +21,12 @@ import {
 } from '../components/payments/ReadingFields';
 import { SettlementTable } from '../components/settlements/SettlementTable';
 import { useReadingEntry } from '../hooks/useReadingEntry';
+import { useDateFormat } from '../hooks/useDateFormat';
 import { moveOutTenant } from '../store/actions';
 import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
 import {
   formatINR,
   formatINRInput,
-  formatIndianDate,
   formatUnitLabel,
   parseISODate,
   parseCurrencyInput,
@@ -53,6 +53,7 @@ type SettlementMethod = RecordedPaymentMethod;
 
 export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Props) {
   const theme = useTheme();
+  const { formatIndianDate } = useDateFormat();
   const tenants = useTenantsStore((state) => state.tenants);
   const units = useUnitsStore((state) => state.units);
   const buildings = useBuildingsStore((state) => state.buildings);
@@ -154,7 +155,10 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
         deductionNote,
         advanceApplied: parseCurrencyInput(advanceApplied),
         depositApplied: parseCurrencyInput(depositApplied),
-        finalRentDetail: `${inclusiveDays(latestBill.cycleStart, moveOutDate)} of ${inclusiveDays(latestBill.cycleStart, latestBill.cycleEnd)} days`,
+        finalRentDetail:
+          latestBill && moveOutDate
+            ? `${inclusiveDays(latestBill.cycleStart, moveOutDate)} of ${inclusiveDays(latestBill.cycleStart, latestBill.cycleEnd)} days`
+            : '',
         finalElectricityDetail: `${Math.max(0, Number(currentReading) - Number(previousReadingValue))} units × ${formatINR(Number(ratePerUnit))}`,
       }),
     [
@@ -169,6 +173,7 @@ export function MoveOutScreen({ visible, tenantId, onDismiss, onCompleted }: Pro
       previousReadingValue,
       ratePerUnit,
       moveOutDate,
+      latestBill,
     ]
   );
   const advanceError = tenant && parseCurrencyInput(advanceApplied) > tenant.electricityAdvance;

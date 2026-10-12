@@ -1,13 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { Button, Chip, Surface, Text, useTheme } from 'react-native-paper';
+import { Button, Chip, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 import { ActionRow } from '../components/dashboard/ActionRow';
 import { AttentionCard } from '../components/dashboard/AttentionCard';
 import { BuildingRow } from '../components/dashboard/BuildingRow';
 import { SectionHeader } from '../components/dashboard/SectionHeader';
 import { SummaryCard } from '../components/dashboard/SummaryCard';
+import { SettingsModal } from '../components/settings/SettingsModal';
 import { useReadingEntry } from '../hooks/useReadingEntry';
 import { useToday } from '../hooks/useToday';
 import { RootTabParamList } from '../navigation/AppTabs';
@@ -22,12 +23,15 @@ import { sharedStyles, spacing } from '../styles/layout';
 import { getDashboardStats } from '../utils/dashboard';
 import { formatINR, formatUnitLabel } from '../utils';
 import { getBillAmounts, getBillStatus } from '../utils/payments';
-import { parseISODate } from '../utils/date';
 import { getReadingContext } from '../utils/readings';
 import { getStatusColors } from '../theme/statusColors';
+import { getStatusLabel, useT } from '../i18n';
+import { useDateFormat } from '../hooks/useDateFormat';
 
 export function DashboardScreen() {
   const theme = useTheme();
+  const { t } = useT();
+  const { formatLongDate } = useDateFormat();
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const { width } = useWindowDimensions();
   const today = useToday();
@@ -37,6 +41,7 @@ export function DashboardScreen() {
   const payments = usePaymentsStore((state) => state.payments);
   const settlements = useSettlementsStore((state) => state.settlements);
   const { openReading, readingModal } = useReadingEntry();
+  const [settingsVisible, setSettingsVisible] = useState(false);
   const stats = useMemo(
     () => getDashboardStats({ buildings, units, tenants, payments, settlements }, today),
     [buildings, payments, settlements, tenants, today, units]
@@ -62,26 +67,31 @@ export function DashboardScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text variant="headlineMedium" style={styles.heading}>
-          Dashboard
-        </Text>
-        <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>
-          Today · {formatDashboardDate(today)}
-        </Text>
+        <View style={styles.headerText}>
+          <Text variant="headlineMedium" style={styles.heading}>
+            {t('dashboard.title')}
+          </Text>
+          <Text variant="bodyLarge" style={{ color: theme.colors.onSurfaceVariant }}>
+            {t('dashboard.today', { date: formatLongDate(today) })}
+          </Text>
+        </View>
+        <IconButton
+          icon="cog-outline"
+          accessibilityLabel={t('settings.title')}
+          onPress={() => setSettingsVisible(true)}
+        />
       </View>
 
       {!buildings.length ? (
         <EmptyCard
-          message="Welcome. Start by adding a building and a unit."
-          buttonLabel="Go to Units"
+          message={t('dashboard.welcome')}
+          buttonLabel={t('dashboard.goToUnits')}
           onPress={() => navigation.navigate('Units')}
         />
       ) : !hasUnits || !hasTenants ? (
         <EmptyCard
-          message={
-            hasUnits ? 'Add your first tenant' : 'Welcome. Start by adding a building and a unit.'
-          }
-          buttonLabel={hasUnits ? 'Go to Tenants' : 'Go to Units'}
+          message={hasUnits ? t('dashboard.addFirstTenant') : t('dashboard.welcome')}
+          buttonLabel={hasUnits ? t('dashboard.goToTenants') : t('dashboard.goToUnits')}
           onPress={() => navigation.navigate(hasUnits ? 'Tenants' : 'Units')}
         />
       ) : null}
@@ -92,33 +102,38 @@ export function DashboardScreen() {
 
           <View style={styles.grid}>
             <SummaryCard
-              title="Occupancy"
-              value={`${stats.totals.occupiedUnits} of ${stats.totals.totalUnits} units`}
-              subtitle={`${stats.totals.occupancyPercent}% occupied`}
+              title={t('dashboard.occupancy')}
+              value={t('dashboard.occupancyValue', {
+                occupied: stats.totals.occupiedUnits,
+                total: stats.totals.totalUnits,
+              })}
+              subtitle={t('dashboard.occupiedPercent', {
+                percent: stats.totals.occupancyPercent,
+              })}
               icon="home-account"
               accentColor={theme.colors.primary}
               width={cardWidth}
             />
             <SummaryCard
-              title="Vacant units"
+              title={t('dashboard.vacantUnits')}
               value={String(stats.totals.vacantUnits)}
-              subtitle={`${stats.totals.totalUnits} total units`}
+              subtitle={t('dashboard.totalUnits', { count: stats.totals.totalUnits })}
               icon="home-search"
               accentColor={theme.colors.tertiary}
               width={cardWidth}
             />
             <SummaryCard
-              title="Collected this month"
+              title={t('dashboard.collectedThisMonth')}
               value={formatINR(stats.summary.collectedThisMonth)}
-              subtitle="Paid rent and electricity"
+              subtitle={t('dashboard.paidRentElectricity')}
               icon="cash-check"
               accentColor={theme.colors.secondary}
               width={cardWidth}
             />
             <SummaryCard
-              title="Expected monthly rent"
+              title={t('dashboard.expectedMonthlyRent')}
               value={formatINR(stats.totals.monthlyRentRoll)}
-              subtitle={`${stats.totals.occupiedUnits} occupied units`}
+              subtitle={t('dashboard.occupiedCount', { count: stats.totals.occupiedUnits })}
               icon="chart-line"
               accentColor={theme.colors.primary}
               width={cardWidth}
@@ -127,7 +142,7 @@ export function DashboardScreen() {
 
           {stats.readingsDue.length ? (
             <AttentionSection
-              title="Readings due"
+              title={t('dashboard.readingsDue')}
               count={stats.readingsDue.length}
               route="ElectricityBalance"
             >
@@ -138,7 +153,7 @@ export function DashboardScreen() {
                 return (
                   <ActionRow
                     key={bill.id}
-                    title={unit ? formatUnitLabel(unit, building) : 'Unknown unit'}
+                    title={unit ? formatUnitLabel(unit, building) : t('dashboard.unknownUnit')}
                     subtitle={`${bill.tenantName} · ${bill.periodLabel}`}
                     onPress={previousReading === null ? undefined : () => openReading(bill.id)}
                     action={
@@ -148,7 +163,7 @@ export function DashboardScreen() {
                         disabled={previousReading === null}
                         onPress={() => openReading(bill.id)}
                       >
-                        Enter reading
+                        {t('dashboard.enterReading')}
                       </Button>
                     }
                   />
@@ -159,7 +174,7 @@ export function DashboardScreen() {
 
           {stats.billsToCollect.length ? (
             <AttentionSection
-              title="Bills to collect"
+              title={t('dashboard.billsToCollect')}
               count={stats.billsToCollect.length}
               route="Payments"
             >
@@ -171,7 +186,7 @@ export function DashboardScreen() {
                 return (
                   <ActionRow
                     key={bill.id}
-                    title={unit ? formatUnitLabel(unit, building) : 'Unknown unit'}
+                    title={unit ? formatUnitLabel(unit, building) : t('dashboard.unknownUnit')}
                     subtitle={bill.tenantName}
                     onPress={() => navigation.navigate('Payments')}
                     trailing={
@@ -184,7 +199,7 @@ export function DashboardScreen() {
                           style={{ backgroundColor: colors.background }}
                           textStyle={{ color: colors.text }}
                         >
-                          {status}
+                          {getStatusLabel(status, t)}
                         </Chip>
                       </View>
                     }
@@ -196,7 +211,7 @@ export function DashboardScreen() {
 
           {stats.endingSoon.length ? (
             <AttentionSection
-              title="Cycles ending soon (7 days)"
+              title={t('dashboard.cyclesEndingSoon')}
               count={stats.endingSoon.length}
               route="ElectricityBalance"
             >
@@ -206,8 +221,8 @@ export function DashboardScreen() {
                 return (
                   <ActionRow
                     key={bill.id}
-                    title={unit ? formatUnitLabel(unit, building) : 'Unknown unit'}
-                    subtitle={`${bill.tenantName} · ${daysLeft ? `Reading opens in ${daysLeft} days` : 'Reading opens today'}`}
+                    title={unit ? formatUnitLabel(unit, building) : t('dashboard.unknownUnit')}
+                    subtitle={`${bill.tenantName} · ${daysLeft ? t('dashboard.readingOpensIn', { count: daysLeft }) : t('dashboard.readingOpensToday')}`}
                     onPress={() => navigation.navigate('ElectricityBalance')}
                   />
                 );
@@ -220,7 +235,7 @@ export function DashboardScreen() {
               variant="bodyLarge"
               style={[styles.emptyAttention, { color: theme.colors.onSurfaceVariant }]}
             >
-              Nothing needs your attention today
+              {t('dashboard.nothingNeedsAttention')}
             </Text>
           ) : null}
         </>
@@ -229,7 +244,7 @@ export function DashboardScreen() {
       {stats.byBuilding.length ? (
         <View>
           <Text variant="titleMedium" style={styles.buildingTitle}>
-            By building
+            {t('dashboard.byBuilding')}
           </Text>
           <Surface
             style={[
@@ -245,6 +260,7 @@ export function DashboardScreen() {
         </View>
       ) : null}
       {readingModal}
+      <SettingsModal visible={settingsVisible} onDismiss={() => setSettingsVisible(false)} />
     </ScrollView>
   );
 }
@@ -303,18 +319,16 @@ function EmptyCard({
   );
 }
 
-function formatDashboardDate(isoDate: string) {
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    weekday: 'short',
-    year: 'numeric',
-  }).format(parseISODate(isoDate));
-}
-
 const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xxl },
-  header: { gap: spacing.xs, marginBottom: spacing.lg, marginTop: spacing.xs },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
+    marginTop: spacing.xs,
+  },
+  headerText: { flex: 1, gap: spacing.xs },
   heading: { fontWeight: '700' },
   emptyCard: {
     borderRadius: 16,

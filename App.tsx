@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   NavigationContainer,
   DefaultTheme as NavigationDefaultTheme,
@@ -8,23 +8,29 @@ import {
 import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppTabs } from './src/navigation/AppTabs';
-import { appTheme } from './src/theme/appTheme';
+import { createAppTheme } from './src/theme/appTheme';
 import { useBillScheduleSync } from './src/hooks/useBillScheduleSync';
-
-const navigationTheme = {
-  ...NavigationDefaultTheme,
-  colors: {
-    ...NavigationDefaultTheme.colors,
-    background: appTheme.colors.background,
-    card: appTheme.colors.elevation.level2,
-    text: appTheme.colors.onSurface,
-    border: appTheme.colors.outlineVariant,
-    primary: appTheme.colors.primary,
-  },
-};
+import { useSettingsStore } from './src/store';
 
 export default function App() {
   useBillScheduleSync();
+  const language = useSettingsStore((state) => state.language);
+  const largeText = useSettingsStore((state) => state.largeText);
+  const appTheme = useMemo(() => createAppTheme({ language, largeText }), [language, largeText]);
+  const navigationTheme = useMemo(
+    () => ({
+      ...NavigationDefaultTheme,
+      colors: {
+        ...NavigationDefaultTheme.colors,
+        background: appTheme.colors.background,
+        card: appTheme.colors.elevation.level2,
+        text: appTheme.colors.onSurface,
+        border: appTheme.colors.outlineVariant,
+        primary: appTheme.colors.primary,
+      },
+    }),
+    [appTheme]
+  );
 
   useEffect(() => {
     void AsyncStorage.removeItem('rm-electricity');

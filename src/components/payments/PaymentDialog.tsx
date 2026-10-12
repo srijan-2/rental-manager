@@ -12,7 +12,9 @@ import {
   useTheme,
 } from 'react-native-paper';
 import { PaymentMethod } from '../../types/payment';
-import { formatIndianDate, parseISODate, todayISO, toISODate } from '../../utils';
+import { parseISODate, todayISO, toISODate } from '../../utils';
+import { useDateFormat } from '../../hooks/useDateFormat';
+import { getMethodLabel, useT } from '../../i18n';
 
 export type RecordedPaymentMethod = Exclude<PaymentMethod, 'Settlement'>;
 
@@ -36,6 +38,8 @@ export function PaymentDialog({
   onDismiss,
 }: PaymentDialogProps) {
   const theme = useTheme();
+  const { t } = useT();
+  const { formatIndianDate } = useDateFormat();
   const [method, setMethod] = useState<RecordedPaymentMethod>(defaultMethod);
   const [date, setDate] = useState(defaultDate || todayISO());
   const [showDate, setShowDate] = useState(false);
@@ -85,19 +89,19 @@ export function PaymentDialog({
             value={method}
             onValueChange={(value) => setMethod(value as RecordedPaymentMethod)}
             buttons={[
-              { value: 'Cash', label: 'Cash' },
-              { value: 'Bank Transfer', label: 'Bank' },
-              { value: 'UPI', label: 'UPI' },
-              { value: 'Card', label: 'Card' },
+              { value: 'Cash', label: getMethodLabel('Cash', t) },
+              { value: 'Bank Transfer', label: getMethodLabel('Bank Transfer', t) },
+              { value: 'UPI', label: getMethodLabel('UPI', t) },
+              { value: 'Card', label: getMethodLabel('Card', t) },
             ]}
           />
           <Text variant="titleMedium" style={styles.label}>
-            Payment date
+            {t('common.paymentDate')}
           </Text>
           <View style={styles.dateRow}>
             <Pressable style={styles.dateInput} onPress={() => setShowDate(true)}>
               <TextInput
-                label="Payment date"
+                label={t('common.paymentDate')}
                 mode="outlined"
                 value={formatIndianDate(date)}
                 editable={false}
@@ -113,11 +117,11 @@ export function PaymentDialog({
                 setDateError('');
               }}
             >
-              Today
+              {t('common.today')}
             </Button>
           </View>
           <Button mode="outlined" onPress={() => setShowDate(true)}>
-            Select Date
+            {t('common.selectDate')}
           </Button>
           {showDate ? (
             <DateTimePicker
@@ -133,8 +137,8 @@ export function PaymentDialog({
           </HelperText>
         </Dialog.Content>
         <Dialog.Actions>
-          <Button onPress={onDismiss}>Cancel</Button>
-          <Button onPress={confirm}>Confirm</Button>
+          <Button onPress={onDismiss}>{t('common.cancel')}</Button>
+          <Button onPress={confirm}>{t('common.confirm')}</Button>
         </Dialog.Actions>
       </Dialog>
     </Portal>

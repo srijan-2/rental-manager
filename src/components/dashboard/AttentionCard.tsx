@@ -5,6 +5,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { RootTabParamList } from '../../navigation/AppTabs';
 import { formatINR } from '../../utils';
 import { spacing } from '../../styles/layout';
+import { useT } from '../../i18n';
 
 interface AttentionCardProps {
   pendingToCollect: number;
@@ -18,6 +19,7 @@ interface AttentionCardProps {
 
 export function AttentionCard(props: AttentionCardProps) {
   const theme = useTheme();
+  const { t } = useT();
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
   const caughtUp =
     props.pendingToCollect === 0 &&
@@ -32,32 +34,40 @@ export function AttentionCard(props: AttentionCardProps) {
         ]}
         elevation={2}
       >
-        <Text variant="titleMedium">Needs attention</Text>
+        <Text variant="titleMedium">{t('dashboard.needsAttention')}</Text>
         <Text variant="headlineMedium" style={styles.amount}>
           {formatINR(props.pendingToCollect)}
         </Text>
         <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-          To collect now
+          {t('dashboard.toCollectNow')}
         </Text>
         {props.overdueCount > 0 ? (
           <Text variant="bodyMedium" style={{ color: theme.colors.error }}>
-            Overdue: {props.overdueCount} bills · {formatINR(props.overdueAmount)}
+            {t('dashboard.overdue', {
+              count: props.overdueCount,
+              amount: formatINR(props.overdueAmount),
+            })}
           </Text>
         ) : null}
         {props.awaitingCalculationCount > 0 ? (
           <Text variant="bodyMedium" style={{ color: theme.colors.tertiary }}>
-            {props.awaitingCalculationCount} units awaiting meter reading · rent{' '}
-            {formatINR(props.awaitingRent)}
+            {t('dashboard.awaitingReading', {
+              count: props.awaitingCalculationCount,
+              amount: formatINR(props.awaitingRent),
+            })}
           </Text>
         ) : null}
         {props.refundsPendingCount > 0 ? (
           <Text variant="bodyMedium" style={{ color: theme.colors.tertiary }}>
-            Refunds to pay: {props.refundsPendingCount} · {formatINR(props.refundsPendingAmount)}
+            {t('dashboard.refundsToPay', {
+              count: props.refundsPendingCount,
+              amount: formatINR(props.refundsPendingAmount),
+            })}
           </Text>
         ) : null}
         {caughtUp ? (
           <Text variant="bodyMedium" style={{ color: theme.colors.primary }}>
-            All caught up
+            {t('dashboard.allCaughtUp')}
           </Text>
         ) : null}
       </Surface>

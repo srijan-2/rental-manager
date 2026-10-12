@@ -4,7 +4,7 @@ import { Button, Chip, Surface, Text, useTheme } from 'react-native-paper';
 import { Building } from '../../types/building';
 import { Payment } from '../../types/payment';
 import { RentalUnit } from '../../types/unit';
-import { formatINR, formatIndianDate, formatUnitLabel } from '../../utils';
+import { formatINR, formatUnitLabel } from '../../utils';
 import {
   describeOutstanding,
   getBillAmounts,
@@ -13,6 +13,8 @@ import {
 } from '../../utils/payments';
 import { radius, spacing } from '../../styles/layout';
 import { getStatusColors } from '../../theme/statusColors';
+import { getMethodLabel, getStatusLabel, useT } from '../../i18n';
+import { useDateFormat } from '../../hooks/useDateFormat';
 
 interface PaymentCardProps {
   bill: Payment;
@@ -49,6 +51,8 @@ export const PaymentCard = memo(
     onDeleteBill,
   }: PaymentCardProps) => {
     const theme = useTheme();
+    const { t } = useT();
+    const { formatIndianDate } = useDateFormat();
     const status = getBillStatus(bill, todayIso);
     const amounts = getBillAmounts(bill);
     const statusColor = getStatusColors(status);
@@ -77,7 +81,7 @@ export const PaymentCard = memo(
             style={[styles.statusChip, { backgroundColor: statusColor.background }]}
             textStyle={{ color: statusColor.text, fontWeight: '700' }}
           >
-            {status}
+            {getStatusLabel(status, t)}
           </Chip>
         </View>
 
@@ -137,7 +141,7 @@ export const PaymentCard = memo(
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
             {bill.rentMethod === 'Settlement'
               ? 'Settled at move-out'
-              : `Rent paid ${formatIndianDate(bill.rentPaidDate)} · ${bill.rentMethod}`}
+              : `Rent paid ${formatIndianDate(bill.rentPaidDate)} · ${getMethodLabel(bill.rentMethod ?? 'Cash', t)}`}
           </Text>
         ) : null}
         {bill.rentPaidDate && bill.rentMethod !== 'Settlement' ? (
@@ -149,7 +153,7 @@ export const PaymentCard = memo(
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>
             {bill.electricityMethod === 'Settlement'
               ? 'Settled at move-out'
-              : `Electricity paid ${formatIndianDate(bill.electricityPaidDate)} · ${bill.electricityMethod}`}
+              : `Electricity paid ${formatIndianDate(bill.electricityPaidDate)} · ${getMethodLabel(bill.electricityMethod ?? 'Cash', t)}`}
           </Text>
         ) : null}
         {bill.electricityPaidDate && bill.electricityMethod !== 'Settlement' ? (

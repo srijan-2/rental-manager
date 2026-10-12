@@ -20,9 +20,11 @@ import {
 } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
 import { Payment } from '../types/payment';
-import { formatINR, formatIndianDate, formatUnitLabel } from '../utils';
+import { formatINR, formatUnitLabel } from '../utils';
 import { getBillStatus, getPaymentsSummary } from '../utils/payments';
 import { canEditReading, getReadingContext } from '../utils/readings';
+import { useDateFormat } from '../hooks/useDateFormat';
+import { useT } from '../i18n';
 
 interface BillSection {
   title: string;
@@ -31,6 +33,8 @@ interface BillSection {
 
 export function ElectricityScreen() {
   const theme = useTheme();
+  const { t } = useT();
+  const { formatIndianDate } = useDateFormat();
   const today = useToday();
   const payments = usePaymentsStore((state) => state.payments);
   const settlements = useSettlementsStore((state) => state.settlements);
@@ -307,6 +311,7 @@ function ElectricityHistoryCard({
   onEdit: () => void;
 }) {
   const theme = useTheme();
+  const { t } = useT();
   const electricity = bill.electricity;
   if (!electricity) return null;
   const units = Number.isInteger(electricity.unitsConsumed)
@@ -330,7 +335,7 @@ function ElectricityHistoryCard({
             {formatINR(electricity.amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </Text>
         </View>
-        <Chip compact>{bill.electricityPaidDate ? 'Paid' : 'Unpaid'}</Chip>
+        <Chip compact>{bill.electricityPaidDate ? t('status.paid') : t('common.unpaid')}</Chip>
       </View>
       {canEdit ? (
         <Button mode="outlined" onPress={onEdit}>

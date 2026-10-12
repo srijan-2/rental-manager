@@ -55,3 +55,5 @@ Personal, single-user rental management app (buildings, units, tenants, rent, el
 1. `npx tsc --noEmit` must pass with zero errors.
 2. `npx prettier --check "src/**/*.{ts,tsx}"` must pass.
 3. Report every file you changed and anything you skipped.
+
+All user-visible text goes through `t()` (`src/i18n`). Add every new key to BOTH `en.ts` and `hi.ts` (tsc enforces it). Use the terms in `src/i18n/GLOSSARY.md`, short simple sentences, no jargon. Never store translated text in data; stored enums stay English. Dates use the language-aware formatters.

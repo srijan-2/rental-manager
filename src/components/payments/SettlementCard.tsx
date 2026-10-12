@@ -5,13 +5,15 @@ import { SettlementTable } from '../settlements/SettlementTable';
 import { Building } from '../../types/building';
 import { Settlement } from '../../types/settlement';
 import { RentalUnit } from '../../types/unit';
-import { formatIndianDate, formatUnitLabel } from '../../utils';
+import { formatUnitLabel } from '../../utils';
 import {
   getSettlementStatus,
   getSettlementSummaryText,
   settlementToStatement,
 } from '../../utils/settlements';
 import { radius, spacing } from '../../styles/layout';
+import { getStatusLabel, useT } from '../../i18n';
+import { useDateFormat } from '../../hooks/useDateFormat';
 
 interface Props {
   settlement: Settlement;
@@ -31,6 +33,8 @@ export function SettlementCard({
   onChangePaid,
 }: Props) {
   const theme = useTheme();
+  const { t } = useT();
+  const { formatIndianDate } = useDateFormat();
   const [statementVisible, setStatementVisible] = useState(false);
   const status = getSettlementStatus(settlement);
   return (
@@ -45,7 +49,7 @@ export function SettlementCard({
             Move-out {formatIndianDate(settlement.moveOutDate)}
           </Text>
         </View>
-        <Chip compact>{status}</Chip>
+        <Chip compact>{getStatusLabel(status, t)}</Chip>
       </View>
       <Text variant="titleMedium">{getSettlementSummaryText(settlement.netAmount)}</Text>
       <View style={styles.actions}>

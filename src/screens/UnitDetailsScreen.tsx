@@ -18,11 +18,13 @@ import { useToday } from '../hooks/useToday';
 import { UnitsStackParamList } from '../navigation/UnitsStack';
 import { useBuildingsStore, usePaymentsStore, useTenantsStore, useUnitsStore } from '../store';
 import { sharedStyles, spacing } from '../styles/layout';
-import { formatINR, formatIndianDate, getBillStatus } from '../utils';
+import { formatINR, getBillStatus } from '../utils';
 import { describeOutstanding, getBillAmounts } from '../utils/payments';
 import { formatUnitLabel } from '../utils/unitLabel';
 import { archiveUnit, deleteUnit, updateUnitDetails } from '../store/actions';
 import { parseCurrencyInput } from '../utils';
+import { getStatusLabel, useT } from '../i18n';
+import { useDateFormat } from '../hooks/useDateFormat';
 
 type Props = NativeStackScreenProps<UnitsStackParamList, 'UnitDetails'>;
 
@@ -42,6 +44,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export function UnitDetailsScreen({ route, navigation }: Props) {
   const theme = useTheme();
+  const { t } = useT();
+  const { formatIndianDate } = useDateFormat();
   const { unitId } = route.params;
   const unit = useUnitsStore((state) => state.units.find((item) => item.id === unitId));
   const addUnitNote = useUnitsStore((state) => state.addUnitNote);
@@ -109,7 +113,7 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
             style={{ backgroundColor: isOccupied ? '#14532d66' : '#78350f66' }}
             textStyle={{ color: isOccupied ? '#86EFAC' : '#FCD34D', fontWeight: '700' }}
           >
-            {unit.status}
+            {unit.status === 'Occupied' ? t('status.occupied') : t('status.vacant')}
           </Chip>
         </View>
         <Menu
@@ -197,7 +201,7 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
 
         <CollapsibleSection title="Rent Information" icon="currency-inr">
           <DetailRow label="Monthly Rent" value={`${formatINR(unit.monthlyRent)}/month`} />
-          <DetailRow label="Payment Status" value={currentPaymentStatus} />
+          <DetailRow label="Payment Status" value={getStatusLabel(currentPaymentStatus, t)} />
           <Divider style={styles.divider} />
           <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>
             Payment History
@@ -207,7 +211,7 @@ export function UnitDetailsScreen({ route, navigation }: Props) {
               <View key={payment.id} style={styles.historyItem}>
                 <Text variant="bodyMedium">{payment.periodLabel}</Text>
                 <Text variant="bodyMedium">{formatINR(getBillAmounts(payment).totalBilled)}</Text>
-                <Chip compact>{getBillStatus(payment, today)}</Chip>
+                <Chip compact>{getStatusLabel(getBillStatus(payment, today), t)}</Chip>
                 {payment.rentMethod === 'Settlement' ||
                 payment.electricityMethod === 'Settlement' ? (
                   <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>

@@ -5,7 +5,8 @@ import { radius, spacing } from '../../styles/layout';
 import { Tenant } from '../../types/tenant';
 import { Building } from '../../types/building';
 import { RentalUnit } from '../../types/unit';
-import { formatINR, formatIndianDate, formatUnitLabel } from '../../utils';
+import { formatINR, formatUnitLabel } from '../../utils';
+import { useDateFormat } from '../../hooks/useDateFormat';
 
 interface TenantCardProps {
   tenant: Tenant;
@@ -20,6 +21,7 @@ interface TenantCardProps {
 export const TenantCard = memo(
   ({ tenant, unit, building, onEdit, onDelete, onMoveOut, hasActivity }: TenantCardProps) => {
     const theme = useTheme();
+    const { formatIndianDate } = useDateFormat();
 
     return (
       <Surface

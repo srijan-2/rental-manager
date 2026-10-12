@@ -4,6 +4,7 @@ import { Text, useTheme } from 'react-native-paper';
 import type { DashboardStats } from '../../utils/dashboard';
 import { formatINR } from '../../utils';
 import { spacing } from '../../styles/layout';
+import { useT } from '../../i18n';
 
 export const BuildingRow = memo(function BuildingRow({
   building,
@@ -11,12 +12,16 @@ export const BuildingRow = memo(function BuildingRow({
   building: DashboardStats['byBuilding'][number];
 }) {
   const theme = useTheme();
+  const { t } = useT();
   return (
     <View style={[styles.row, { borderBottomColor: theme.colors.outlineVariant }]}>
       <View style={styles.copy}>
         <Text variant="bodyLarge">{building.building.name}</Text>
         <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-          {building.occupiedUnits}/{building.totalUnits} units occupied
+          {t('dashboard.unitsOccupied', {
+            occupied: building.occupiedUnits,
+            total: building.totalUnits,
+          })}
         </Text>
       </View>
       <Text

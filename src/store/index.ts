@@ -3,6 +3,7 @@ export { useTenantsStore } from './tenantsStore';
 export { usePaymentsStore } from './paymentsStore';
 export { useBuildingsStore } from './buildingsStore';
 export { useSettlementsStore } from './settlementsStore';
+export { useSettingsStore } from './settingsStore';
 export {
   archiveUnit,
   assignTenant,

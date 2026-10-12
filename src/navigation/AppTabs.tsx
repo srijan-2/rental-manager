@@ -6,6 +6,7 @@ import { ElectricityScreen } from '../screens/ElectricityScreen';
 import { PaymentsScreen } from '../screens/PaymentsScreen';
 import { TenantsScreen } from '../screens/TenantsScreen';
 import { UnitsStack } from './UnitsStack';
+import { useT } from '../i18n';
 
 export type RootTabParamList = {
   Dashboard: undefined;
@@ -19,12 +20,25 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export function AppTabs() {
   const theme = useTheme();
+  const { t } = useT();
+  const titles: Record<keyof RootTabParamList, string> = {
+    Dashboard: t('tab.dashboard'),
+    Units: t('tab.units'),
+    Tenants: t('tab.tenants'),
+    Payments: t('tab.payments'),
+    ElectricityBalance: t('tab.electricity'),
+  };
 
   return (
     <Tab.Navigator
       initialRouteName="Dashboard"
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarLabel: titles[route.name],
+        tabBarLabelStyle: {
+          fontSize: theme.fonts.labelMedium.fontSize,
+          lineHeight: theme.fonts.labelMedium.lineHeight,
+        },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
@@ -51,11 +65,7 @@ export function AppTabs() {
       <Tab.Screen name="Units" component={UnitsStack} />
       <Tab.Screen name="Tenants" component={TenantsScreen} />
       <Tab.Screen name="Payments" component={PaymentsScreen} />
-      <Tab.Screen
-        name="ElectricityBalance"
-        component={ElectricityScreen}
-        options={{ title: 'Electricity' }}
-      />
+      <Tab.Screen name="ElectricityBalance" component={ElectricityScreen} />
     </Tab.Navigator>
   );
 }

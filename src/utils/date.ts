@@ -14,7 +14,49 @@ export function parseISODate(iso: string) {
   return new Date(year, month - 1, day);
 }
 
-export function formatIndianDate(isoDate: string) {
+const hindiMonths = [
+  'जनवरी',
+  'फ़रवरी',
+  'मार्च',
+  'अप्रैल',
+  'मई',
+  'जून',
+  'जुलाई',
+  'अगस्त',
+  'सितंबर',
+  'अक्टूबर',
+  'नवंबर',
+  'दिसंबर',
+];
+
+const hindiWeekdays = ['रविवार', 'सोमवार', 'मंगलवार', 'बुधवार', 'गुरुवार', 'शुक्रवार', 'शनिवार'];
+
+const englishMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+const englishWeekdays = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+export function formatIndianDate(isoDate: string, language: 'hi' | 'en' = 'en') {
   if (!isoDate || isoDate === '-') {
     return '-';
   }
@@ -22,9 +64,22 @@ export function formatIndianDate(isoDate: string) {
   if (Number.isNaN(parsed.getTime())) {
     return isoDate;
   }
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(parsed);
+  const month =
+    language === 'hi' ? hindiMonths[parsed.getMonth()] : englishMonths[parsed.getMonth()];
+  return `${String(parsed.getDate()).padStart(2, '0')} ${month} ${parsed.getFullYear()}`;
+}
+
+export function formatLongDate(isoDate: string, language: 'hi' | 'en' = 'en') {
+  if (!isoDate || isoDate === '-') {
+    return '-';
+  }
+  const parsed = parseISODate(isoDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return isoDate;
+  }
+  const weekday =
+    language === 'hi' ? hindiWeekdays[parsed.getDay()] : englishWeekdays[parsed.getDay()];
+  const month =
+    language === 'hi' ? hindiMonths[parsed.getMonth()] : englishMonths[parsed.getMonth()];
+  return `${weekday}, ${parsed.getDate()} ${month} ${parsed.getFullYear()}`;
 }

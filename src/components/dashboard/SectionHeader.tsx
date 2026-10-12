@@ -4,6 +4,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Button, Text } from 'react-native-paper';
 import { RootTabParamList } from '../../navigation/AppTabs';
 import { spacing } from '../../styles/layout';
+import { useT } from '../../i18n';
 
 interface SectionHeaderProps {
   title: string;
@@ -13,13 +14,14 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title, count, route }: SectionHeaderProps) {
   const navigation = useNavigation<BottomTabNavigationProp<RootTabParamList>>();
+  const { t } = useT();
   return (
     <View style={styles.row}>
       <Text variant="titleMedium" style={styles.title}>
         {title} ({count})
       </Text>
       <Button compact onPress={() => navigation.navigate(route)}>
-        View all
+        {t('common.viewAll')}
       </Button>
     </View>
   );
